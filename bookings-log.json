@@ -34,5 +34,17 @@
     "slot": "09:30",
     "result": "already",
     "message": "found in My Bookings"
+  },
+  {
+    "time": "2026-10-18T13:36:01+11:00",
+    "mode": "now",
+    "selectionId": "groupex|Theresa|Stretch And Stability|3|10:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Stretch And Stability",
+    "date": "2026-10-22",
+    "slot": "10:30",
+    "result": "waitlisted",
+    "message": ""
   }
 ]
