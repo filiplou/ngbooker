@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """LOCAL ONLY: print the shape of the site's responses so field names/time formats can be verified.
 
     $env:NG_MEMBER_NUMBER = "..."; $env:NG_PASSWORD = "..."; python scripts/discover.py
@@ -30,14 +30,16 @@ def main():
     show("GetAvailableBookingDates (first 2 of %d)" % len(dates), dates)
     open_dates = [d for d in dates if not c.is_blocked(d)]
     print(f"\nBookable days for this membership: {len(open_dates)} of {len(dates)}")
-    if open_dates:
-        d = open_dates[-1]
+    for d in reversed(open_dates):  # newest day may not be published yet, so walk back to one with programs
         raw = c._call("POST", "/AvailableTennisProgramsforDate",
                       json={"dateAsISOString": d["dateAsISOString"], "siteID": c.site_id, "memberID": c.member_id})
-        show("AvailableTennisProgramsforDate raw (first 2)", raw)
-        for p in c.programs(d)[:5]:
-            print(f"  parsed: {p['date']} {p['time']} weekday={p['weekday']} {p['className']!r}  "
-                  f"(site shows dateTime={p['raw'].get('dateTime')!r})")
+        print(f"\nday {d['dateAsISOString'][:10]}: {len(raw or [])} programs")
+        if raw:
+            show("AvailableTennisProgramsforDate raw (first 2)", raw)
+            for p in c.programs(d)[:5]:
+                print(f"  parsed: {p['date']} {p['time']} weekday={p['weekday']} {p['className']!r}  "
+                      f"(site shows dateTime={p['raw'].get('dateTime')!r})")
+            break
     show("GetMemberBookings item1 (first 2)", c.my_bookings())
 
 

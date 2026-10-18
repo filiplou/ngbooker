@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Book (or join the waiting list for) the sessions selected on the dashboard.
 
 --mode scheduled : nightly run. Waits for 00:05 Sydney time, then polls until the newly released
@@ -71,7 +71,7 @@ def try_book(client, d, prog):
         return "failed", "site did not confirm the booking"
     # Re-read bookings so we can report booked vs waiting list accurately.
     try:
-        b = find_booking(client.my_bookings(), prog["className"], prog["date"])
+        b = find_booking(client.my_bookings(), prog["className"], prog["date"], prog["time"])
         if b is not None and "isOnWaitList" in b:
             on_wait_list = bool(b["isOnWaitList"])
     except NGError:
@@ -105,7 +105,7 @@ def attempt_pass(client, sels, log, mode, only_date=None):
                 continue
             if bookings is None:
                 bookings = client.my_bookings()
-            if find_booking(bookings, prog["className"], date_iso):
+            if find_booking(bookings, prog["className"], date_iso, prog["time"]):
                 record(log, mode, s, prog, "already", "found in My Bookings")
                 continue
             result, msg = try_book(client, d, prog)

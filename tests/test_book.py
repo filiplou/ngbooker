@@ -1,4 +1,4 @@
-"""Offline tests: run with  python -m unittest discover -s tests  (no network, no credentials)."""
+﻿"""Offline tests: run with  python -m unittest discover -s tests  (no network, no credentials)."""
 import sys
 import unittest
 from datetime import datetime, timedelta
@@ -44,7 +44,7 @@ class FakeClient:
         return True
 
     def my_bookings(self):
-        mine = [{"className": "Social Tennis", "date": self.day.isoformat(), "isOnWaitList": self.waitlist}] if self.booked else []
+        mine = [{"className": "Social Tennis", "displayDate": self.day.strftime("%A %d %B"), "displayTime": "6:30 PM", "isOnWaitList": self.waitlist}] if self.booked else []
         return self.existing + mine
 
 
@@ -97,6 +97,13 @@ class Tests(unittest.TestCase):
         a, b = make_prog(self.dt), make_prog(self.dt + timedelta(days=7))
         self.assertEqual(a["id"], b["id"])
         self.assertNotEqual(a["date"], b["date"])
+
+    def test_find_booking_real_shape(self):
+        b = [{"className": "Social Doubles C1-2 C1", "displayDate": "Tuesday 20 October", "displayTime": "7:30 PM"}]
+        self.assertIsNotNone(ngclient.find_booking(b, "Social Doubles C1-2 C1", "2026-10-20", "19:30"))
+        self.assertIsNone(ngclient.find_booking(b, "Social Doubles C1-2 C1", "2026-10-20", "18:30"))
+        self.assertIsNone(ngclient.find_booking(b, "Social Doubles C1-2 C1", "2026-10-27", "19:30"))
+        self.assertIsNone(ngclient.find_booking(b, "Other", "2026-10-20", "19:30"))
 
     def test_naive_time_treated_as_sydney(self):
         self.assertEqual(ngclient.parse_local("2026-01-05T18:30:00").tzinfo, SYD)

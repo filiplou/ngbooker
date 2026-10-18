@@ -162,10 +162,31 @@ def client_from_env():
     return c
 
 
-def find_booking(bookings, class_name, date_iso):
-    """Best-effort match of an existing booking (the exact field names are not known up front)."""
+def _display_hhmm(s):
+    """'7:30 PM' -> '19:30' (None if it cannot be read)."""
+    m = re.match(r"\s*(\d{1,2}):(\d{2})\s*([AaPp])", str(s or ""))
+    if not m:
+        return None
+    h = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "p" else 0)
+    return f"{h:02d}:{m.group(2)}"
+
+
+def find_booking(bookings, class_name, date_iso, time_str=None):
+    """Match an existing booking. The site's My Bookings items have className, displayDate
+    ('Tuesday 20 October') and displayTime ('7:30 PM'); no ISO date."""
+    day = datetime.fromisoformat(date_iso)
+    want = re.compile(r"\b%d\s+%s\b" % (day.day, day.strftime("%B")), re.I)
     for b in bookings or []:
-        text = json.dumps(b, default=str).lower()
-        if class_name.lower() in text and date_iso in text:
-            return b
+        if "displayDate" not in b:  # unknown shape: fall back to a text search
+            text = json.dumps(b, default=str).lower()
+            if class_name.lower() in text and date_iso in text:
+                return b
+            continue
+        if str(b.get("className", "")).strip().lower() != class_name.strip().lower():
+            continue
+        if not want.search(str(b["displayDate"])):
+            continue
+        if time_str and _display_hhmm(b.get("displayTime")) not in (None, time_str):
+            continue
+        return b
     return None
