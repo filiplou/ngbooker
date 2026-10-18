@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T03:26:19.855Z",
+  "updated": "2026-10-18T03:28:26.525Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -27,6 +27,16 @@
       "time": "10:30",
       "weekday": 3,
       "activityID": "RE2TH1030"
+    },
+    {
+      "id": "groupex|Chantal|H.I.I.T|2|07:00",
+      "progId": "H.I.I.T|2|07:00",
+      "kind": "groupex",
+      "who": "Chantal",
+      "className": "H.I.I.T",
+      "time": "07:00",
+      "weekday": 2,
+      "activityID": "RE3WE0700APR25A"
     }
   ]
 }
