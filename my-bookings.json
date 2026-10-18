@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T13:01:56+11:00",
+  "updated": "2026-10-18T13:29:51+11:00",
   "bookings": [
     {
       "bookingID": 21084035,
@@ -9,7 +9,63 @@
       "duration": "60 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
-      "firstName": null
+      "firstName": null,
+      "who": "Filip"
+    },
+    {
+      "bookingID": 21125949,
+      "displayDate": "Monday 19 October",
+      "displayTime": "9:10 AM",
+      "className": "Sculpt Booty Band",
+      "duration": "45 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20955827,
+      "displayDate": "Tuesday 20 October",
+      "displayTime": "8:30 AM",
+      "className": "Sculpt Booty Band",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20956188,
+      "displayDate": "Thursday 22 October",
+      "displayTime": "8:30 AM",
+      "className": "Sculpt Booty Band",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20956222,
+      "displayDate": "Thursday 22 October",
+      "displayTime": "9:30 AM",
+      "className": "BodyPump®",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 21087683,
+      "displayDate": "Friday 23 October",
+      "displayTime": "8:30 AM",
+      "className": "Cycle/tabata Studio 3 & 1",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
     }
   ]
 }
