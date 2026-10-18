@@ -1,0 +1,66 @@
+name: Book selected sessions
+
+on:
+  schedule:
+    # Sydney midnight is 13:00 UTC (AEDT) or 14:00 UTC (AEST). Start ~30 min early to absorb GitHub cron delays.
+    # The script ignores runs that start outside 23:00-01:30 Sydney time, so both entries are safe all year.
+    - cron: '30 12 * * *'
+    - cron: '30 13 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'scheduled = wait for 00:05 release, now = book straight away'
+        default: 'now'
+        type: choice
+        options: [now, scheduled]
+      selection_id:
+        description: 'Only this selection id (blank = all selections)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ng-data-writes
+  cancel-in-progress: false
+
+jobs:
+  book:
+    runs-on: ubuntu-latest
+    environment: club   # secrets live in this environment, restricted to the main branch
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the data branch into data/
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          path: data
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Book
+        env:
+          NG_MEMBER_NUMBER: ${{ secrets.NGMEMBERNUMBER }}
+          NG_PASSWORD: ${{ secrets.NGPASSWORD }}
+          MODE: ${{ github.event.inputs.mode || 'scheduled' }}
+          SELECTION_ID: ${{ github.event.inputs.selection_id || '' }}
+        run: python scripts/book.py --mode "$MODE" --selection-id "$SELECTION_ID"
+
+      - name: Save results
+        if: always()
+        run: |
+          git -C data config user.name "ngbooker[bot]"
+          git -C data config user.email "ngbooker@users.noreply.github.com"
+          git -C data add bookings-log.json
+          git -C data diff --cached --quiet && exit 0
+          git -C data commit -m "Update bookings log"
+          git -C data pull --rebase origin data
+          git -C data push origin HEAD:data

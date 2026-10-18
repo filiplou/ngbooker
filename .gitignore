@@ -1,0 +1,6 @@
+# ghplan.md holds private planning notes - never publish
+ghplan.md
+.env
+__pycache__/
+*.pyc
+error.png

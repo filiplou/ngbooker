@@ -1,0 +1,448 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NG Booker</title>
+<style>
+  :root { --bg:#fff; --surface:#f7f8fa; --border:#e5e7eb; --text:#1f2328; --muted:#57606a; --accent:#3b82d4; --ok:#1a7f37; --warn:#9a6700; --bad:#cf222e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.6 -apple-system,"Segoe UI",system-ui,sans-serif; color:var(--text); background:var(--bg); }
+  main { max-width:860px; margin:0 auto; padding:16px; }
+  h1 { font-size:22px; margin:8px 0 12px; }
+  h2 { font-size:16px; margin:20px 0 8px; }
+  .tabs, .days { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0; }
+  button { font:inherit; padding:6px 12px; border:1px solid var(--border); background:var(--surface); border-radius:6px; cursor:pointer; color:var(--text); }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.danger { color:var(--bad); }
+  button:disabled { opacity:.5; cursor:default; }
+  .card { border:1px solid var(--border); background:var(--surface); border-radius:8px; padding:10px 12px; margin:6px 0; display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+  .card.sel { border-color:var(--accent); }
+  .card label { display:flex; gap:10px; align-items:center; cursor:pointer; flex:1; min-width:200px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .tag { font-size:12px; padding:1px 8px; border-radius:10px; border:1px solid var(--border); background:#fff; }
+  .booked,.already { color:var(--ok); } .waitlisted { color:var(--warn); } .failed,.not-published { color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+  input[type=text],input[type=password] { font:inherit; padding:6px 8px; border:1px solid var(--border); border-radius:6px; width:100%; }
+  #log { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:8px; font:12px/1.5 ui-monospace,Consolas,monospace; max-height:140px; overflow:auto; white-space:pre-wrap; margin-top:16px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; } .row > div { flex:1; min-width:180px; }
+  .box { border:1px solid var(--border); background:var(--surface); border-radius:8px; padding:12px 14px; margin:10px 0; }
+  .box.choose { border:2px solid var(--warn); background:#fff8e6; }
+  .box.choose h2 { margin-top:0; color:var(--warn); }
+  #lock { max-width:480px; margin:24px auto; }
+  #lock input { margin:4px 0 10px; }
+  .err { color:var(--bad); font-size:13px; min-height:18px; }
+  label.chk { display:flex; gap:8px; align-items:center; font-size:14px; }
+  label.chk input { width:auto; margin:0; }
+  [hidden] { display:none !important; }
+  footer { text-align:center; font-size:12px; color:var(--muted); border-top:1px solid var(--border); margin-top:28px; padding-top:10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>NG Booker</h1>
+
+  <section id="lock" hidden>
+    <div id="lockMsg" class="muted">Checking...</div>
+
+    <div id="unlockPane" hidden>
+      <div class="box">
+        <h2 style="margin-top:0">Locked</h2>
+        <label>Passphrase<input type="password" id="unlockPass" autocomplete="current-password"></label>
+        <label class="chk"><input type="checkbox" id="remember" checked> Remember on this device</label>
+        <p><button class="primary" id="unlockBtn">Unlock</button></p>
+        <div class="err" id="unlockErr"></div>
+        <p class="muted">Forgot it? Create a new fine-grained token on GitHub and set up the vault again (README, "Forgot the passphrase").</p>
+      </div>
+    </div>
+
+    <div id="setupPane" hidden>
+      <div class="box">
+        <h2 style="margin-top:0">First-time setup (do this once, on your computer)</h2>
+        <p class="muted">Paste your fine-grained GitHub token. It will be encrypted in this browser and saved to the repository as <code>vault.json</code>. After that you only type the passphrase, on any device.</p>
+        <label>GitHub token<input type="password" id="setupToken" autocomplete="off" placeholder="github_pat_..."></label>
+      </div>
+      <div class="box choose">
+        <h2>STEP: CHOOSE A SHORT PASSPHRASE NOW</h2>
+        <p>This is the only thing you and your wife will type on your phones. Make it easy to type but hard to guess:</p>
+        <ul class="muted">
+          <li>4 random words, for example <b>copper-lemon-river-ten</b> (an example only, pick your own), or at least 12 characters</li>
+          <li>Not a name, birthday, address or a password you use elsewhere</li>
+          <li>The encrypted file is public, so strangers can try guesses offline - a longer passphrase is safer</li>
+          <li>Tell your wife the passphrase. There is no way to recover it, only to set up again</li>
+        </ul>
+        <label>Passphrase<input type="password" id="setupPass1" autocomplete="new-password"></label>
+        <label>Passphrase again<input type="password" id="setupPass2" autocomplete="new-password"></label>
+        <p><button class="primary" id="setupBtn">Create vault and unlock</button></p>
+        <div class="err" id="setupErr"></div>
+      </div>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+  <div class="tabs" id="tabs">
+    <button data-tab="sessions" class="active">Choose sessions</button>
+    <button data-tab="auto">Automatic bookings</button>
+    <button data-tab="settings">Settings</button>
+  </div>
+
+  <section id="tab-sessions">
+    <div class="row" style="align-items:center">
+      <div class="muted" id="sessionsInfo">Loading...</div>
+      <div style="flex:0 0 auto"><button id="refreshBtn" title="Re-read the session list from the club website">Refresh from club site</button></div>
+    </div>
+    <div class="days" id="days"></div>
+    <div id="sessionList"></div>
+    <div style="margin-top:12px"><button class="primary" id="saveBtn" disabled>Save selection</button> <span class="muted" id="dirty"></span></div>
+  </section>
+
+  <section id="tab-auto" hidden>
+    <h2>Selected sessions (booked automatically at 00:05 Sydney time, 7 days ahead)</h2>
+    <div id="selList"></div>
+    <h2>Booking history</h2>
+    <div id="logTable"></div>
+    <h2>Current bookings on the club site</h2>
+    <div id="myBookings" class="muted"></div>
+  </section>
+
+  <section id="tab-settings" hidden>
+    <h2>Repository</h2>
+    <p class="muted">Normally correct already. The data branch holds the JSON files and the encrypted vault; workflows always run from <code>main</code>.</p>
+    <div class="row">
+      <div><label>Owner<input type="text" id="owner"></label></div>
+      <div><label>Repository<input type="text" id="repo"></label></div>
+      <div><label>Data branch<input type="text" id="branch"></label></div>
+    </div>
+    <p><button class="primary" id="saveSettings">Save repository settings</button></p>
+
+    <h2>Change passphrase or replace token</h2>
+    <div class="box choose">
+      <h2>STEP: CHOOSE A SHORT PASSPHRASE</h2>
+      <p class="muted">Same rules as setup: 4 random words or at least 12 characters. Everyone must use the new one afterwards, and other devices will ask for it again.</p>
+      <label>GitHub token (leave blank to keep the current one)<input type="password" id="newToken" autocomplete="off" placeholder="github_pat_..."></label>
+      <label>New passphrase<input type="password" id="newPass1" autocomplete="new-password"></label>
+      <label>New passphrase again<input type="password" id="newPass2" autocomplete="new-password"></label>
+      <p><button class="primary" id="updateVault">Update vault</button></p>
+      <div class="err" id="vaultErr"></div>
+    </div>
+
+    <h2>This device</h2>
+    <p><button id="lockNow" class="danger">Lock now and forget this device</button></p>
+  </section>
+
+  </div>
+  <div id="log" aria-live="polite"></div>
+  <footer>Made with IBM Bob</footer>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  var LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { sessions: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], my: null };
+
+  var CODE_BRANCH = "main";           // workflows are always dispatched from here
+  var PBKDF2_ITER = 600000;
+  var cfg = {
+    owner: localStorage.getItem("ngb.owner") || (location.hostname.endsWith(".github.io") ? location.hostname.split(".")[0] : "filiplou"),
+    repo: localStorage.getItem("ngb.repo") || (location.hostname.endsWith(".github.io") ? location.pathname.split("/")[1] || "ngbooker" : "ngbooker"),
+    branch: localStorage.getItem("ngb.databranch") || "data",   // branch holding data files and vault.json
+    token: ""                          // only set after the passphrase unlocks the vault (or a remembered device)
+  };
+  var vaultSha = null;
+
+  function log(msg, bad) {
+    var el = $("log"), t = new Date().toLocaleTimeString();
+    el.textContent += (el.textContent ? "\n" : "") + t + "  " + (bad ? "ERROR: " : "") + msg;
+    el.scrollTop = el.scrollHeight;
+  }
+  function el(tag, props, children) {
+    var e = document.createElement(tag);
+    Object.keys(props || {}).forEach(function (k) { if (k === "text") e.textContent = props[k]; else if (k === "class") e.className = props[k]; else e.setAttribute(k, props[k]); });
+    (children || []).forEach(function (c) { e.appendChild(c); });
+    return e;
+  }
+  function bytesToB64(u8) { var s = ""; for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); }
+  function b64ToBytes(s) { var bin = atob(s.replace(/\s/g, "")); var u8 = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return u8; }
+  function b64(s) { return bytesToB64(new TextEncoder().encode(s)); }
+  function unb64(s) { return new TextDecoder().decode(b64ToBytes(s)); }
+
+  // ---- Vault (token encrypted with the passphrase: PBKDF2-SHA256 -> AES-GCM) ----
+  function deriveKey(pass, salt, iter) {
+    return crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]).then(function (base) {
+      return crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: iter, hash: "SHA-256" }, base,
+        { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    });
+  }
+  function encryptToken(token, pass) {
+    var salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    return deriveKey(pass, salt, PBKDF2_ITER).then(function (key) {
+      return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, new TextEncoder().encode(token));
+    }).then(function (ct) {
+      return { v: 1, kdf: "PBKDF2-SHA256", iter: PBKDF2_ITER, salt: bytesToB64(salt), iv: bytesToB64(iv), ct: bytesToB64(new Uint8Array(ct)) };
+    });
+  }
+  function decryptToken(vault, pass) {
+    return deriveKey(pass, b64ToBytes(vault.salt), vault.iter).then(function (key) {
+      return crypto.subtle.decrypt({ name: "AES-GCM", iv: b64ToBytes(vault.iv) }, key, b64ToBytes(vault.ct));
+    }).then(function (pt) { return new TextDecoder().decode(pt); });
+  }
+  function weakPassphrase(p) {
+    return p.length < 12 ? "Passphrase is too short: use at least 12 characters (for example 4 random words joined with dashes)." : "";
+  }
+
+  // ---- GitHub API ------------------------------------------------------
+  function gh(path, opts) {
+    opts = opts || {};
+    var headers = { "Accept": "application/vnd.github+json" };
+    if (cfg.token) headers["Authorization"] = "Bearer " + cfg.token;
+    if (opts.body) headers["Content-Type"] = "application/json";
+    return fetch("https://api.github.com/repos/" + encodeURIComponent(cfg.owner) + "/" + encodeURIComponent(cfg.repo) + path,
+      { method: opts.method || "GET", headers: headers, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: "no-store" })
+      .then(function (r) {
+        if (r.status === 204) return null;
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (r.status === 401 && cfg.token) { forgetDevice(); showLock("GitHub rejected the saved token (expired or revoked). Set up a new token, see README."); }
+          if (!r.ok) { var e = new Error((j && j.message) || ("HTTP " + r.status)); e.status = r.status; throw e; }
+          return j;
+        });
+      });
+  }
+  // Data files and vault.json live in the root of the data branch.
+  function readFile(name) {
+    return gh("/contents/" + name + "?ref=" + encodeURIComponent(cfg.branch)).then(function (j) {
+      return { sha: j.sha, data: JSON.parse(unb64(j.content)) };
+    });
+  }
+  function writeFile(name, obj, sha, message) {
+    var body = { message: message, content: b64(JSON.stringify(obj, null, 2) + "\n"), branch: cfg.branch };
+    if (sha) body.sha = sha;
+    return gh("/contents/" + name, { method: "PUT", body: body });
+  }
+  function dispatch(workflow, inputs) {
+    return gh("/actions/workflows/" + workflow + "/dispatches", { method: "POST", body: { ref: CODE_BRANCH, inputs: inputs || {} } });
+  }
+  function needToken() {
+    if (cfg.token) return false;
+    log("The dashboard is locked.", true);
+    showLock();
+    return true;
+  }
+
+  // ---- Lock screen -------------------------------------------------------
+  function setPane(which, msg) {
+    $("lock").hidden = false; $("app").hidden = true;
+    $("lockMsg").textContent = msg || "";
+    $("unlockPane").hidden = which !== "unlock"; $("setupPane").hidden = which !== "setup";
+  }
+  function showLock(msg) { startLock(msg, true); }
+  function forgetDevice() { cfg.token = ""; localStorage.removeItem("ngb.token"); }
+  function enterApp() {
+    $("lock").hidden = true; $("app").hidden = false;
+    $("owner").value = cfg.owner; $("repo").value = cfg.repo; $("branch").value = cfg.branch;
+    loadAll();
+  }
+  function startLock(msg, forcePrompt) {
+    if (!(window.crypto && crypto.subtle)) { setPane("none", "This browser cannot do encryption here (it needs https). Open the https GitHub Pages address."); return; }
+    setPane("none", msg || "Checking...");
+    gh("/contents/vault.json?ref=" + encodeURIComponent(cfg.branch)).then(function (j) {
+      vaultSha = j.sha;
+      var vault = JSON.parse(unb64(j.content));
+      var saved = localStorage.getItem("ngb.token");
+      if (saved && !forcePrompt) { cfg.token = saved; enterApp(); return; }
+      setPane("unlock", msg || "");
+      $("unlockPass").value = ""; $("unlockPass").focus();
+      $("unlockBtn").onclick = function () { unlock(vault); };
+      $("unlockPass").onkeydown = function (e) { if (e.key === "Enter") unlock(vault); };
+    }).catch(function (e) {
+      if (e.status === 404) {
+        gh("/branches/" + encodeURIComponent(cfg.branch)).then(function () {
+          setPane("setup", "No vault yet - first-time setup.");
+          $("setupBtn").onclick = firstSetup;
+        }).catch(function () {
+          setPane("none", "The '" + cfg.branch + "' branch does not exist yet. Create it first (README, 'Create the data branch'), then reload.");
+        });
+      } else setPane("none", "Could not reach GitHub: " + e.message + " (reload to retry)");
+    });
+  }
+  function unlock(vault) {
+    var pass = $("unlockPass").value, err = $("unlockErr");
+    if (!pass) { err.textContent = "Type the passphrase."; return; }
+    $("unlockBtn").disabled = true; err.textContent = "Unlocking...";
+    decryptToken(vault, pass).then(function (token) {
+      cfg.token = token;
+      if ($("remember").checked) localStorage.setItem("ngb.token", token); else localStorage.removeItem("ngb.token");
+      $("unlockPass").value = ""; err.textContent = "";
+      enterApp();
+    }).catch(function () { err.textContent = "Wrong passphrase."; })
+      .then(function () { $("unlockBtn").disabled = false; });
+  }
+  function buildVault(token, p1, p2, errEl) {
+    errEl.textContent = "";
+    if (p1 !== p2) { errEl.textContent = "The two passphrases do not match."; return Promise.reject(); }
+    var w = weakPassphrase(p1); if (w) { errEl.textContent = w; return Promise.reject(); }
+    return encryptToken(token, p1);
+  }
+  function putVault(vault, sha) {
+    var body = { message: "Update vault", content: b64(JSON.stringify(vault, null, 2) + "\n"), branch: cfg.branch };
+    if (sha) body.sha = sha;
+    return gh("/contents/vault.json", { method: "PUT", body: body }).then(function (r) { vaultSha = r.content.sha; });
+  }
+  function firstSetup() {
+    var token = $("setupToken").value.trim(), err = $("setupErr");
+    if (!token) { err.textContent = "Paste the GitHub token first."; return; }
+    buildVault(token, $("setupPass1").value, $("setupPass2").value, err).then(function (vault) {
+      err.textContent = "Checking token and saving...";
+      cfg.token = token;
+      return putVault(vault, null).then(function () {
+        localStorage.setItem("ngb.token", token);
+        ["setupToken", "setupPass1", "setupPass2"].forEach(function (id) { $(id).value = ""; });
+        err.textContent = ""; enterApp();
+      });
+    }).catch(function (e) { if (e && e.message) { cfg.token = ""; err.textContent = "Setup failed: " + e.message + ". Check the token has Contents: Read and write on this repository."; } });
+  }
+
+  // ---- Data ------------------------------------------------------------
+  function loadAll() {
+    return Promise.all([readFile("sessions.json"), readFile("selections.json"), readFile("bookings-log.json"), readFile("my-bookings.json")])
+      .then(function (r) {
+        state.sessions = r[0].data.sessions || []; state.updated = r[0].data.updated || "";
+        state.selections = r[1].data.selections || []; state.selSha = r[1].sha; state.dirty = false;
+        state.log = r[2].data || []; state.my = r[3].data;
+        render();
+        log("Loaded " + state.sessions.length + " sessions and " + state.selections.length + " selections.");
+      })
+      .catch(function (e) { log("Could not load data: " + e.message, true); });
+  }
+  function isSelected(id) { return state.selections.some(function (s) { return s.id === id; }); }
+  function toggle(s) {
+    if (isSelected(s.id)) state.selections = state.selections.filter(function (x) { return x.id !== s.id; });
+    else state.selections.push({ id: s.id, className: s.className, time: s.time, weekday: s.weekday, activityID: s.activityID });
+    state.dirty = true; render();
+  }
+  function saveSelections() {
+    if (needToken()) return;
+    $("saveBtn").disabled = true;
+    var payload = { updated: new Date().toISOString(), selections: state.selections };
+    writeFile("selections.json", payload, state.selSha, "Update selections").then(function (r) {
+      state.selSha = r.content.sha; state.dirty = false; log("Selection saved (" + state.selections.length + " sessions)."); render();
+    }).catch(function (e) { log("Save failed: " + e.message, true); render(); });
+  }
+
+  // ---- Rendering -------------------------------------------------------
+  function fmtDate(iso) { var p = iso.split("-"); return DAYS[(new Date(+p[0], p[1] - 1, +p[2]).getDay() + 6) % 7] + " " + p[2] + "/" + p[1]; }
+  function render() {
+    var dates = []; state.sessions.forEach(function (s) { if (dates.indexOf(s.date) < 0) dates.push(s.date); });
+    if (!state.day || dates.indexOf(state.day) < 0) state.day = dates[0] || null;
+    $("sessionsInfo").textContent = state.sessions.length
+      ? state.sessions.length + " sessions across " + dates.length + " days. Last read from the club site: " + (state.updated ? state.updated.replace("T", " ") : "unknown")
+      : "No sessions yet - press 'Refresh from club site' and reload in about a minute.";
+
+    var days = $("days"); days.textContent = "";
+    dates.forEach(function (d) {
+      var b = el("button", { text: fmtDate(d), class: d === state.day ? "active" : "" });
+      b.onclick = function () { state.day = d; render(); };
+      days.appendChild(b);
+    });
+
+    var list = $("sessionList"); list.textContent = "";
+    state.sessions.filter(function (s) { return s.date === state.day; }).forEach(function (s) {
+      var cb = el("input", { type: "checkbox" }); cb.checked = isSelected(s.id); cb.onchange = function () { toggle(s); };
+      var info = el("span", {}, [el("b", { text: s.time + "  " + s.className })]);
+      list.appendChild(el("div", { class: "card" + (cb.checked ? " sel" : "") }, [el("label", {}, [cb, info]),
+        el("span", { class: "muted", text: cb.checked ? "Auto-book every " + LONG[s.weekday] : "" })]));
+    });
+    if (state.day && !list.children.length) list.appendChild(el("p", { class: "muted", text: "No sessions on this day." }));
+
+    $("saveBtn").disabled = !state.dirty;
+    $("dirty").textContent = state.dirty ? "Unsaved changes" : "";
+
+    renderAuto();
+  }
+  function renderAuto() {
+    var sl = $("selList"); sl.textContent = "";
+    if (!state.selections.length) sl.appendChild(el("p", { class: "muted", text: "Nothing selected yet." }));
+    state.selections.slice().sort(function (a, b) { return a.weekday - b.weekday || a.time.localeCompare(b.time); }).forEach(function (s) {
+      var now = el("button", { text: "Book now (test)" }); now.onclick = function () { bookNow(s, now); };
+      var rm = el("button", { text: "Remove", class: "danger" }); rm.onclick = function () { toggle(s); saveSelections(); };
+      sl.appendChild(el("div", { class: "card sel" }, [
+        el("span", {}, [el("b", { text: LONG[s.weekday] + " " + s.time + "  " + s.className })]),
+        el("span", {}, [now, document.createTextNode(" "), rm])]));
+    });
+
+    var lt = $("logTable"); lt.textContent = "";
+    if (!state.log.length) lt.appendChild(el("p", { class: "muted", text: "No bookings attempted yet." }));
+    else {
+      var t = el("table", {}, [el("thead", {}, [el("tr", {}, ["Run time", "Session", "Date", "Result"].map(function (h) { return el("th", { text: h }); }))])]);
+      var tb = el("tbody");
+      state.log.slice().reverse().slice(0, 100).forEach(function (e) {
+        tb.appendChild(el("tr", {}, [
+          el("td", { text: (e.time || "").replace("T", " ") }),
+          el("td", { text: e.className + " " + e.slot }),
+          el("td", { text: e.date }),
+          el("td", {}, [el("span", { class: e.result, text: e.result + (e.message ? " - " + e.message : "") })])]));
+      });
+      t.appendChild(tb); lt.appendChild(t);
+    }
+    var my = $("myBookings"); my.textContent = "";
+    var items = (state.my && state.my.bookings) || [];
+    if (!items.length) my.textContent = "None listed (updated by 'Refresh from club site').";
+    else items.forEach(function (b) {
+      var bits = Object.keys(b).filter(function (k) { return typeof b[k] !== "object" && b[k] !== "" && b[k] !== null; }).slice(0, 6).map(function (k) { return b[k]; });
+      my.appendChild(el("div", { class: "card", text: bits.join("  |  ") }));
+    });
+  }
+  function show(tab) {
+    ["sessions", "auto", "settings"].forEach(function (t) { $("tab-" + t).hidden = t !== tab; });
+    Array.prototype.forEach.call($("tabs").children, function (b) { b.className = b.getAttribute("data-tab") === tab ? "active" : ""; });
+  }
+
+  // ---- Actions ---------------------------------------------------------
+  function bookNow(s, btn) {
+    if (needToken()) return;
+    if (state.dirty) { log("Save your selection before booking.", true); return; }
+    btn.disabled = true;
+    dispatch("book.yml", { mode: "now", selection_id: s.id }).then(function () {
+      log("Booking started for " + s.className + " " + s.time + ". Reload in ~30-60 seconds to see the result.");
+    }).catch(function (e) { log("Could not start booking: " + e.message, true); }).then(function () { setTimeout(function () { btn.disabled = false; }, 5000); });
+  }
+
+  $("tabs").onclick = function (e) { var t = e.target.getAttribute("data-tab"); if (t) { show(t); if (t === "auto") loadAll(); } };
+  $("saveBtn").onclick = saveSelections;
+  $("refreshBtn").onclick = function () {
+    if (needToken()) return;
+    dispatch("scrape.yml").then(function () { log("Refresh started. Reload this page in about a minute."); })
+      .catch(function (e) { log("Could not start refresh: " + e.message, true); });
+  };
+  $("saveSettings").onclick = function () {
+    cfg.owner = $("owner").value.trim(); cfg.repo = $("repo").value.trim(); cfg.branch = $("branch").value.trim() || "data";
+    localStorage.setItem("ngb.owner", cfg.owner); localStorage.setItem("ngb.repo", cfg.repo); localStorage.setItem("ngb.databranch", cfg.branch);
+    log("Settings saved."); loadAll();
+  };
+  $("updateVault").onclick = function () {
+    var err = $("vaultErr"), token = $("newToken").value.trim() || cfg.token;
+    if (!token) { err.textContent = "No token available."; return; }
+    buildVault(token, $("newPass1").value, $("newPass2").value, err).then(function (vault) {
+      err.textContent = "Saving...";
+      var prev = cfg.token;
+      cfg.token = token;
+      return putVault(vault, vaultSha).then(function () {
+        if (localStorage.getItem("ngb.token")) localStorage.setItem("ngb.token", token);
+        ["newToken", "newPass1", "newPass2"].forEach(function (id) { $(id).value = ""; });
+        err.textContent = ""; log("Vault updated. Use the new passphrase on your other devices.");
+      }).catch(function (e) { cfg.token = prev; throw e; });
+    }).catch(function (e) { if (e && e.message) err.textContent = "Failed: " + e.message; });
+  };
+  $("lockNow").onclick = function () { forgetDevice(); state.selections = []; state.dirty = false; showLock("Locked. This device has forgotten the token."); };
+  window.addEventListener("beforeunload", function (e) { if (state.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+  startLock();
+})();
+</script>
+</body>
+</html>

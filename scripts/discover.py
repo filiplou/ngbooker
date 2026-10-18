@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""LOCAL ONLY: print the shape of the site's responses so field names/time formats can be verified.
+
+    $env:NG_MEMBER_NUMBER = "..."; $env:NG_PASSWORD = "..."; python scripts/discover.py
+
+Output contains your own data - do not paste it into chat or commit it.
+"""
+import json
+import sys
+
+from ngclient import NGError, SENSITIVE, client_from_env
+
+
+def show(label, obj, limit=2):
+    def mask(o):
+        if isinstance(o, dict):
+            return {k: ("<hidden>" if SENSITIVE.search(k) else mask(v)) for k, v in o.items()}
+        if isinstance(o, list):
+            return [mask(v) for v in o[:limit]]
+        return o
+
+    print(f"\n=== {label} ===")
+    print(json.dumps(mask(obj), indent=2, default=str)[:3000])
+
+
+def main():
+    c = client_from_env()
+    print(f"Logged in OK. site={c.site_id} gold={c.is_gold}")
+    dates = c.dates()
+    show("GetAvailableBookingDates (first 2 of %d)" % len(dates), dates)
+    open_dates = [d for d in dates if not c.is_blocked(d)]
+    print(f"\nBookable days for this membership: {len(open_dates)} of {len(dates)}")
+    if open_dates:
+        d = open_dates[-1]
+        raw = c._call("POST", "/AvailableTennisProgramsforDate",
+                      json={"dateAsISOString": d["dateAsISOString"], "siteID": c.site_id, "memberID": c.member_id})
+        show("AvailableTennisProgramsforDate raw (first 2)", raw)
+        for p in c.programs(d)[:5]:
+            print(f"  parsed: {p['date']} {p['time']} weekday={p['weekday']} {p['className']!r}  "
+                  f"(site shows dateTime={p['raw'].get('dateTime')!r})")
+    show("GetMemberBookings item1 (first 2)", c.my_bookings())
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except NGError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)

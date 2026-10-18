@@ -1,0 +1,50 @@
+name: Refresh session list
+
+on:
+  schedule:
+    - cron: '20 20 * * *'   # daily, ~06:20-07:20 Sydney
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ng-data-writes
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    environment: club   # secrets live in this environment, restricted to the main branch
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the data branch into data/
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          path: data
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Scrape Tennis Programs
+        env:
+          NG_MEMBER_NUMBER: ${{ secrets.NGMEMBERNUMBER }}
+          NG_PASSWORD: ${{ secrets.NGPASSWORD }}
+        run: python scripts/scrape.py
+
+      - name: Save results
+        run: |
+          git -C data config user.name "ngbooker[bot]"
+          git -C data config user.email "ngbooker@users.noreply.github.com"
+          git -C data add sessions.json my-bookings.json
+          git -C data diff --cached --quiet && exit 0
+          git -C data commit -m "Refresh sessions"
+          git -C data pull --rebase origin data
+          git -C data push origin HEAD:data
