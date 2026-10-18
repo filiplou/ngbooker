@@ -2,14 +2,14 @@ name: Book selected sessions
 
 on:
   schedule:
-    # Sydney midnight is 13:00 UTC (AEDT) or 14:00 UTC (AEST). Start ~30 min early to absorb GitHub cron delays.
-    # The script ignores runs that start outside 23:00-01:30 Sydney time, so both entries are safe all year.
-    - cron: '30 12 * * *'
-    - cron: '30 13 * * *'
+    # Sydney 08:01 is 21:01 UTC (AEDT, UTC+11) or 22:01 UTC (AEST, UTC+10). Fire ~30 min early to absorb GitHub cron delays.
+    # The script ignores runs that start outside 07:00-09:00 Sydney time, so both entries are safe all year.
+    - cron: '30 20 * * *'
+    - cron: '30 21 * * *'
   workflow_dispatch:
     inputs:
       mode:
-        description: 'scheduled = wait for 00:05 release, now = book straight away'
+        description: 'scheduled = wait for 08:01 release, now = book straight away'
         default: 'now'
         type: choice
         options: [now, scheduled]
