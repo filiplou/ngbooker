@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T19:37:41+11:00",
+  "updated": "2026-10-19T09:08:04+11:00",
   "bookings": [
     {
       "bookingID": 21084035,
@@ -11,6 +11,28 @@
       "isOnWaitList": false,
       "firstName": null,
       "who": "Filip"
+    },
+    {
+      "bookingID": 21084187,
+      "displayDate": "Thursday 22 October",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles B2 C1-2 C1",
+      "duration": "60 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": true,
+      "firstName": null,
+      "who": "Filip"
+    },
+    {
+      "bookingID": 21084539,
+      "displayDate": "Monday 19 October",
+      "displayTime": "10:00 AM",
+      "className": "Cardio Tennis C1",
+      "duration": "45 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Annika"
     },
     {
       "bookingID": 21125949,
