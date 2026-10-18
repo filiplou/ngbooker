@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T13:29:51+11:00",
+  "updated": "2026-10-18T19:37:41+11:00",
   "bookings": [
     {
       "bookingID": 21084035,
@@ -53,6 +53,17 @@
       "duration": "55 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20956210,
+      "displayDate": "Thursday 22 October",
+      "displayTime": "10:30 AM",
+      "className": "Stretch And Stability",
+      "duration": "45 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": true,
       "firstName": null,
       "who": "Theresa"
     },
