@@ -113,14 +113,6 @@
   </section>
 
   <section id="tab-settings" hidden>
-    <h2>Repository</h2>
-    <p class="muted">Normally correct already. The data branch holds the JSON files and the encrypted vault; workflows always run from <code>main</code>.</p>
-    <div class="row">
-      <div><label>Owner<input type="text" id="owner"></label></div>
-      <div><label>Repository<input type="text" id="repo"></label></div>
-      <div><label>Data branch<input type="text" id="branch"></label></div>
-    </div>
-
     <h2>Booking time</h2>
     <p class="muted">Sydney time at which new slots are published and bookings should be made (HH:MM, 24-hour).</p>
     <div class="row">
@@ -142,10 +134,11 @@
 
     <h2>This device</h2>
     <p><button id="lockNow" class="danger">Lock now and forget this device</button></p>
+    <h2>Debug log</h2>
+    <div id="log" aria-live="polite"></div>
   </section>
 
   </div>
-  <div id="log" aria-live="polite"></div>
   <footer>Made with IBM Bob</footer>
 </main>
 
@@ -257,7 +250,6 @@
   function forgetDevice() { cfg.token = ""; localStorage.removeItem("ngb.token"); }
   function enterApp() {
     $("lock").hidden = true; $("app").hidden = false;
-    $("owner").value = cfg.owner; $("repo").value = cfg.repo; $("branch").value = cfg.branch;
     $("releaseTime").value = state.releaseTime;
     loadAll();
   }
@@ -540,8 +532,6 @@
       .catch(function (e) { log("Could not start refresh: " + e.message, true); });
   };
   $("saveSettings").onclick = function () {
-    cfg.owner = $("owner").value.trim(); cfg.repo = $("repo").value.trim(); cfg.branch = $("branch").value.trim() || "data";
-    localStorage.setItem("ngb.owner", cfg.owner); localStorage.setItem("ngb.repo", cfg.repo); localStorage.setItem("ngb.databranch", cfg.branch);
     var rt = $("releaseTime").value.trim();
     if (/^\d{1,2}:\d{2}$/.test(rt)) {
       state.releaseTime = rt.length === 4 ? "0" + rt : rt;
