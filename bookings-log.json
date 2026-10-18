@@ -2,21 +2,37 @@
   {
     "time": "2026-10-18T13:03:27+11:00",
     "mode": "now",
-    "selectionId": "Social Doubles B2 C1-2|3|19:30",
+    "selectionId": "racquet|Filip|Social Doubles B2 C1-2|3|19:30",
     "className": "Social Doubles B2 C1-2",
     "date": "2026-10-22",
     "slot": "19:30",
     "result": "waitlisted",
-    "message": ""
+    "message": "",
+    "who": "Filip",
+    "kind": "racquet"
   },
   {
     "time": "2026-10-18T13:04:22+11:00",
     "mode": "now",
-    "selectionId": "Social Doubles C1-2|1|19:30",
+    "selectionId": "racquet|Filip|Social Doubles C1-2|1|19:30",
     "className": "Social Doubles C1-2",
     "date": "2026-10-20",
     "slot": "19:30",
     "result": "failed",
-    "message": "You have another concurrent (at the same time) reservation. Please cancel your existing reservation and try again or choose a class with a different time."
+    "message": "You have another concurrent (at the same time) reservation. Please cancel your existing reservation and try again or choose a class with a different time.",
+    "who": "Filip",
+    "kind": "racquet"
+  },
+  {
+    "time": "2026-10-18T13:33:55+11:00",
+    "mode": "now",
+    "selectionId": "groupex|Theresa|BodyPump®|3|09:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "BodyPump®",
+    "date": "2026-10-22",
+    "slot": "09:30",
+    "result": "already",
+    "message": "found in My Bookings"
   }
 ]
