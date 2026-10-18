@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T02:03:51.246Z",
+  "updated": "2026-10-18T02:33:13.137Z",
   "selections": [
     {
       "id": "Social Doubles B2 C1-2|3|19:30",
@@ -14,6 +14,16 @@
       "time": "19:30",
       "weekday": 1,
       "activityID": "RT1TU1930JAN26"
+    },
+    {
+      "id": "groupex|Theresa|BodyPump®|3|09:30",
+      "progId": "BodyPump®|3|09:30",
+      "kind": "groupex",
+      "who": "Theresa",
+      "className": "BodyPump®",
+      "time": "09:30",
+      "weekday": 3,
+      "activityID": "RE1TH0930APR24"
     }
   ]
 }
