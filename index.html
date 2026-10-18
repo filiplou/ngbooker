@@ -497,10 +497,11 @@
       whoOrder.forEach(function (w) {
         my.appendChild(el("h3", { text: w, style: "margin:16px 0 6px; font-size:1em; color:#555;" }));
         byWho[w].forEach(function (b) {
-          var dateStr = b.date || b.startDate || "";
-          var timeStr = b.time || b.startTime || "";
+          var dateStr = b.displayDate || b.date || b.startDate || "";
+          var timeStr = b.displayTime || b.time || b.startTime || "";
           var name    = b.className || b.name || b.activityName || "";
-          var dur     = b.duration ? b.duration + " mins" : "";
+          var durRaw  = b.duration || "";
+          var dur     = durRaw ? (String(durRaw).toLowerCase().includes("min") ? String(durRaw) : durRaw + " mins") : "";
           var parts   = [dateStr, timeStr, name, dur].filter(Boolean);
           my.appendChild(el("div", { class: "card", style: "margin-bottom:6px;" }, [
             el("span", { text: parts.join("  ·  ") })
