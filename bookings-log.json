@@ -46,5 +46,17 @@
     "slot": "10:30",
     "result": "waitlisted",
     "message": ""
+  },
+  {
+    "time": "2026-10-18T19:38:06+11:00",
+    "mode": "now",
+    "selectionId": "racquet|Annika|Cardio Tennis|0|10:00",
+    "kind": "racquet",
+    "who": "Annika",
+    "className": "Cardio Tennis",
+    "date": "2026-10-19",
+    "slot": "10:00",
+    "result": "waitlisted",
+    "message": ""
   }
 ]
