@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-19T09:08:04+11:00",
+  "updated": "2026-10-19T09:29:54+11:00",
   "bookings": [
     {
       "bookingID": 21084035,
@@ -22,28 +22,6 @@
       "isOnWaitList": true,
       "firstName": null,
       "who": "Filip"
-    },
-    {
-      "bookingID": 21084539,
-      "displayDate": "Monday 19 October",
-      "displayTime": "10:00 AM",
-      "className": "Cardio Tennis C1",
-      "duration": "45 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Annika"
-    },
-    {
-      "bookingID": 21125949,
-      "displayDate": "Monday 19 October",
-      "displayTime": "9:10 AM",
-      "className": "Sculpt Booty Band",
-      "duration": "45 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Theresa"
     },
     {
       "bookingID": 20955827,
