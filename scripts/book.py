@@ -132,10 +132,17 @@ def main():
     ap.add_argument("--poll", type=float, default=3.0)
     args = ap.parse_args()
 
-    raw_sels = load("selections.json", {"selections": []})["selections"]
+    sel_data = load("selections.json", {"selections": []})
+    if sel_data.get("allPaused"):
+        say("All automatic bookings are paused - exiting.")
+        return 0
+    raw_sels = [s for s in sel_data["selections"] if not s.get("paused")]
     if not raw_sels:
         say("No matching selections - nothing to do.")
         return 0
+    # Release time can be overridden via selections.json (set from the dashboard Settings tab).
+    if not args.release or args.release == "08:01":
+        args.release = sel_data.get("releaseTime", "08:01")
 
     log = load("bookings-log.json", [])
     sels = None  # normalised once we know the primary member (after login)
@@ -144,10 +151,12 @@ def main():
     release_at = None
 
     if args.mode == "scheduled":
-        # Valid windows are around Sydney 08:01 (the workflow has a cron for each DST offset).
+        # Accept any run that starts within 90 minutes before or after the configured release time.
+        hh_r, mm_r = map(int, args.release.split(":"))
+        release_minutes = hh_r * 60 + mm_r
         minutes = start.hour * 60 + start.minute
-        if not (7 * 60 <= minutes <= 9 * 60):
-            say(f"Outside the Sydney 08:01 window ({start:%H:%M}) - exiting.")
+        if not (release_minutes - 90 <= minutes <= release_minutes + 90):
+            say(f"Outside the booking window (release={args.release}, now={start:%H:%M}) - exiting.")
             return 0
         biz_day = start.date() + timedelta(days=1) if start.hour >= 12 else start.date()
         target = biz_day + timedelta(days=args.advance_days)

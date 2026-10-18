@@ -20,6 +20,7 @@
   button:disabled { opacity:.5; cursor:default; }
   .card { border:1px solid var(--border); background:var(--surface); border-radius:8px; padding:10px 12px; margin:6px 0; display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
   .card.sel { border-color:var(--accent); }
+  .card.paused { opacity:.45; border-style:dashed; }
   .card label { display:flex; gap:10px; align-items:center; cursor:pointer; flex:1; min-width:200px; }
   .muted { color:var(--muted); font-size:13px; }
   .tag { font-size:12px; padding:1px 8px; border-radius:10px; border:1px solid var(--border); background:#fff; }
@@ -102,8 +103,9 @@
   </section>
 
   <section id="tab-auto" hidden>
-    <h2>Selected sessions (booked automatically at 08:01 Sydney time, 7 days ahead)</h2>
+    <h2 id="autoHeading">Selected sessions (booked automatically at 08:01 Sydney time, 7 days ahead)</h2>
     <div id="selList"></div>
+    <div id="pauseAllWrap" style="margin:10px 0 4px;"></div>
     <h2>Booking history</h2>
     <div id="logTable"></div>
     <h2>Current bookings on the club site</h2>
@@ -111,14 +113,13 @@
   </section>
 
   <section id="tab-settings" hidden>
-    <h2>Repository</h2>
-    <p class="muted">Normally correct already. The data branch holds the JSON files and the encrypted vault; workflows always run from <code>main</code>.</p>
+    <h2>Booking time</h2>
+    <p class="muted">Sydney time at which new slots are published and bookings should be made (HH:MM, 24-hour).</p>
     <div class="row">
-      <div><label>Owner<input type="text" id="owner"></label></div>
-      <div><label>Repository<input type="text" id="repo"></label></div>
-      <div><label>Data branch<input type="text" id="branch"></label></div>
+      <div style="max-width:140px"><label>Release time<input type="text" id="releaseTime" placeholder="08:01" maxlength="5"></label></div>
     </div>
-    <p><button class="primary" id="saveSettings">Save repository settings</button></p>
+
+    <p><button class="primary" id="saveSettings">Save settings</button></p>
 
     <h2>Change passphrase or replace token</h2>
     <div class="box choose">
@@ -133,10 +134,11 @@
 
     <h2>This device</h2>
     <p><button id="lockNow" class="danger">Lock now and forget this device</button></p>
+    <h2>Debug log</h2>
+    <div id="log" aria-live="polite"></div>
   </section>
 
   </div>
-  <div id="log" aria-live="polite"></div>
   <footer>Made with IBM Bob</footer>
 </main>
 
@@ -148,7 +150,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var KIND_LABEL = { racquet: "Racquets", groupex: "Group exercise" };
   var state = { sessions: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], my: null,
-                members: [], kind: "racquet", who: null };
+                members: [], kind: "racquet", who: null, allPaused: false, releaseTime: "08:01" };
 
   var CODE_BRANCH = "main";           // workflows are always dispatched from here
   var PBKDF2_ITER = 600000;
@@ -248,7 +250,7 @@
   function forgetDevice() { cfg.token = ""; localStorage.removeItem("ngb.token"); }
   function enterApp() {
     $("lock").hidden = true; $("app").hidden = false;
-    $("owner").value = cfg.owner; $("repo").value = cfg.repo; $("branch").value = cfg.branch;
+    $("releaseTime").value = state.releaseTime;
     loadAll();
   }
   function startLock(msg, forcePrompt) {
@@ -318,7 +320,11 @@
     return Promise.all([readFile("sessions.json"), readFile("selections.json"), readFile("bookings-log.json"), readFile("my-bookings.json"), members])
       .then(function (r) {
         state.sessions = r[0].data.sessions || []; state.updated = r[0].data.updated || "";
-        state.selections = r[1].data.selections || []; state.selSha = r[1].sha; state.dirty = false;
+        state.selections = r[1].data.selections || []; state.selSha = r[1].sha;
+        state.allPaused = r[1].data.allPaused || false;
+        state.releaseTime = r[1].data.releaseTime || "08:01"; state.dirty = false;
+        $("autoHeading").textContent = "Selected sessions (booked automatically at " + state.releaseTime + " Sydney time, 7 days ahead)";
+        $("releaseTime").value = state.releaseTime;
         state.log = r[2].data || []; state.my = r[3].data; state.members = r[4];
         if (!state.who || state.members.indexOf(state.who) < 0) state.who = state.members[0] || null;
         render();
@@ -347,7 +353,7 @@
   function saveSelections() {
     if (needToken()) return;
     $("saveBtn").disabled = true;
-    var payload = { updated: new Date().toISOString(), selections: state.selections };
+    var payload = { updated: new Date().toISOString(), allPaused: state.allPaused, releaseTime: state.releaseTime, selections: state.selections };
     writeFile("selections.json", payload, state.selSha, "Update selections").then(function (r) {
       state.selSha = r.content.sha; state.dirty = false; log("Selection saved (" + state.selections.length + " sessions)."); render();
     }).catch(function (e) { log("Save failed: " + e.message, true); render(); });
@@ -425,13 +431,36 @@
           currentWho = who;
           sl.appendChild(el("h3", { text: who, style: "margin:16px 0 6px; font-size:1em; color:#555;" }));
         }
+        var isPaused = !!s.paused;
+        var pauseBtn = el("button", { text: isPaused ? "▶" : "⏸", title: isPaused ? "Resume" : "Pause" });
+        pauseBtn.onclick = function () {
+          s.paused = !s.paused;
+          state.dirty = true;
+          saveSelections();
+        };
         var now = el("button", { text: "Book now (test)" }); now.onclick = function () { bookNow(s, now); };
         var rm = el("button", { text: "Remove", class: "danger" }); rm.onclick = function () { toggle(s); saveSelections(); };
-        sl.appendChild(el("div", { class: "card sel" }, [
+        var cardClass = "card sel" + (isPaused ? " paused" : "");
+        sl.appendChild(el("div", { class: cardClass }, [
           el("span", {}, [el("b", { text: LONG[s.weekday] + " " + s.time + "  " + s.className }), el("br"),
-            el("span", { class: "muted", text: KIND_LABEL[selKind(s)] })]),
-          el("span", {}, [now, document.createTextNode(" "), rm])]));
+            el("span", { class: "muted", text: KIND_LABEL[selKind(s)] + (isPaused ? "  · paused" : "") })]),
+          el("span", {}, [pauseBtn, document.createTextNode(" "), now, document.createTextNode(" "), rm])]));
       });
+    }
+
+    // Pause-all toggle
+    var pw = $("pauseAllWrap"); pw.textContent = "";
+    if (state.selections.length) {
+      var pauseAll = el("button", {
+        text: state.allPaused ? "▶  Resume all automatic bookings" : "⏸  Pause all automatic bookings",
+        style: state.allPaused ? "border-color:var(--ok);color:var(--ok);" : "border-color:var(--warn);color:var(--warn);"
+      });
+      pauseAll.onclick = function () {
+        state.allPaused = !state.allPaused;
+        state.dirty = true;
+        saveSelections();
+      };
+      pw.appendChild(pauseAll);
     }
 
     // --- 2. Booking history — last 10 entries ---
@@ -503,8 +532,14 @@
       .catch(function (e) { log("Could not start refresh: " + e.message, true); });
   };
   $("saveSettings").onclick = function () {
-    cfg.owner = $("owner").value.trim(); cfg.repo = $("repo").value.trim(); cfg.branch = $("branch").value.trim() || "data";
-    localStorage.setItem("ngb.owner", cfg.owner); localStorage.setItem("ngb.repo", cfg.repo); localStorage.setItem("ngb.databranch", cfg.branch);
+    var rt = $("releaseTime").value.trim();
+    if (/^\d{1,2}:\d{2}$/.test(rt)) {
+      state.releaseTime = rt.length === 4 ? "0" + rt : rt;
+      state.dirty = true;
+      saveSelections();
+    } else if (rt) {
+      log("Invalid release time — use HH:MM format (e.g. 08:01).", true); return;
+    }
     log("Settings saved."); loadAll();
   };
   $("updateVault").onclick = function () {
