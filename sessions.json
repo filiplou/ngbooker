@@ -1,4 +1,235 @@
 {
-  "updated": "",
-  "sessions": []
+  "updated": "2026-10-18T13:01:28+11:00",
+  "sessions": [
+    {
+      "id": "Cardio Tennis|0|10:00",
+      "className": "Cardio Tennis",
+      "activityID": "RT1MO1000JAN26A",
+      "date": "2026-10-19",
+      "time": "10:00",
+      "weekday": 0,
+      "info": {
+        "timeDisplayString": "10:00 AM",
+        "instructorName": "Tomas Urtubey",
+        "duration": 45,
+        "spacesAvailable": 6,
+        "spacesAvailableString": "6 remaining",
+        "spacesAvailableDetailString": "6 spaces remaining",
+        "bookButtonDisplayString": "Book",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Cardio Tennis",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    },
+    {
+      "id": "Social Doubles A1-2 B1-2|1|09:30",
+      "className": "Social Doubles A1-2 B1-2",
+      "activityID": "RT1TU0930OCT25",
+      "date": "2026-10-20",
+      "time": "09:30",
+      "weekday": 1,
+      "info": {
+        "timeDisplayString": "9:30 AM",
+        "instructorName": "Tomas Urtubey",
+        "duration": 60,
+        "spacesAvailable": 0,
+        "spacesAvailableString": "Waiting List",
+        "spacesAvailableDetailString": "CLASS IS FULLY BOOKED",
+        "bookButtonDisplayString": "Book into waiting list",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Synthetic Court 1",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    },
+    {
+      "id": "Social Doubles B2 C1-2|1|10:30",
+      "className": "Social Doubles B2 C1-2",
+      "activityID": "RT1TU1030JAN26",
+      "date": "2026-10-20",
+      "time": "10:30",
+      "weekday": 1,
+      "info": {
+        "timeDisplayString": "10:30 AM",
+        "instructorName": "Tomas Urtubey",
+        "duration": 60,
+        "spacesAvailable": -2,
+        "spacesAvailableString": "Waiting List",
+        "spacesAvailableDetailString": "CLASS IS FULLY BOOKED",
+        "bookButtonDisplayString": "Book into waiting list",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Synthetic Court 1",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    },
+    {
+      "id": "Social Doubles A1-2 B1-2|1|18:30",
+      "className": "Social Doubles A1-2 B1-2",
+      "activityID": "RT1TU1830JAN26",
+      "date": "2026-10-20",
+      "time": "18:30",
+      "weekday": 1,
+      "info": {
+        "timeDisplayString": "6:30 PM",
+        "instructorName": "Tomas Urtubey",
+        "duration": 60,
+        "spacesAvailable": -6,
+        "spacesAvailableString": "Waiting List",
+        "spacesAvailableDetailString": "CLASS IS FULLY BOOKED",
+        "bookButtonDisplayString": "Book into waiting list",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Synthetic Court 1",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    },
+    {
+      "id": "Social Doubles C1-2|1|19:30",
+      "className": "Social Doubles C1-2",
+      "activityID": "RT1TU1930JAN26",
+      "date": "2026-10-20",
+      "time": "19:30",
+      "weekday": 1,
+      "info": {
+        "timeDisplayString": "7:30 PM",
+        "instructorName": "Tomas Urtubey",
+        "duration": 60,
+        "spacesAvailable": -2,
+        "spacesAvailableString": "Waiting List",
+        "spacesAvailableDetailString": "CLASS IS FULLY BOOKED",
+        "bookButtonDisplayString": "Book into waiting list",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Synthetic Court 1",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    },
+    {
+      "id": "Skills And Drills B2 C1|2|07:00",
+      "className": "Skills And Drills B2 C1",
+      "activityID": "RT1WE0700JUL25A",
+      "date": "2026-10-21",
+      "time": "07:00",
+      "weekday": 2,
+      "info": {
+        "timeDisplayString": "7:00 AM",
+        "instructorName": "",
+        "duration": 60,
+        "spacesAvailable": 1,
+        "spacesAvailableString": "1 remaining",
+        "spacesAvailableDetailString": "1 spaces remaining",
+        "bookButtonDisplayString": "Book",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Skills And Drills",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    },
+    {
+      "id": "Social Doubles A1-2 B1-2|3|09:30",
+      "className": "Social Doubles A1-2 B1-2",
+      "activityID": "RT1TU0930OCT25",
+      "date": "2026-10-22",
+      "time": "09:30",
+      "weekday": 3,
+      "info": {
+        "timeDisplayString": "9:30 AM",
+        "instructorName": "Tomas Urtubey",
+        "duration": 60,
+        "spacesAvailable": 3,
+        "spacesAvailableString": "3 remaining",
+        "spacesAvailableDetailString": "3 spaces remaining",
+        "bookButtonDisplayString": "Book",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Synthetic Court 1",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    },
+    {
+      "id": "Social Doubles B2 C1-2|3|10:30",
+      "className": "Social Doubles B2 C1-2",
+      "activityID": "RT1TU1030JAN26",
+      "date": "2026-10-22",
+      "time": "10:30",
+      "weekday": 3,
+      "info": {
+        "timeDisplayString": "10:30 AM",
+        "instructorName": "Tomas Urtubey",
+        "duration": 60,
+        "spacesAvailable": -2,
+        "spacesAvailableString": "Waiting List",
+        "spacesAvailableDetailString": "CLASS IS FULLY BOOKED",
+        "bookButtonDisplayString": "Book into waiting list",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Synthetic Court 1",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    },
+    {
+      "id": "Social Doubles A1-2 B1-2|3|18:30",
+      "className": "Social Doubles A1-2 B1-2",
+      "activityID": "RT1WE1830JAN26",
+      "date": "2026-10-22",
+      "time": "18:30",
+      "weekday": 3,
+      "info": {
+        "timeDisplayString": "6:30 PM",
+        "instructorName": "Tomas Urtubey",
+        "duration": 60,
+        "spacesAvailable": -5,
+        "spacesAvailableString": "Waiting List",
+        "spacesAvailableDetailString": "CLASS IS FULLY BOOKED",
+        "bookButtonDisplayString": "Book into waiting list",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Synthetic Court 1",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    },
+    {
+      "id": "Social Doubles B2 C1-2|3|19:30",
+      "className": "Social Doubles B2 C1-2",
+      "activityID": "RT1WE1930JAN26",
+      "date": "2026-10-22",
+      "time": "19:30",
+      "weekday": 3,
+      "info": {
+        "timeDisplayString": "7:30 PM",
+        "instructorName": "Tomas Urtubey",
+        "duration": 60,
+        "spacesAvailable": -1,
+        "spacesAvailableString": "Waiting List",
+        "spacesAvailableDetailString": "CLASS IS FULLY BOOKED",
+        "bookButtonDisplayString": "Book into waiting list",
+        "hideStages": false,
+        "classDescription": "",
+        "location": "Synthetic Court 1",
+        "isEnquiry": false,
+        "resourceProductID": null,
+        "accessCategory": null
+      }
+    }
+  ]
 }

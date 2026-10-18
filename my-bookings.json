@@ -1,4 +1,15 @@
 {
-  "updated": "",
-  "bookings": []
+  "updated": "2026-10-18T13:01:28+11:00",
+  "bookings": [
+    {
+      "bookingID": 21084035,
+      "displayDate": "Tuesday 20 October",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles C1-2 C1",
+      "duration": "60 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null
+    }
+  ]
 }
