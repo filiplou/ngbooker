@@ -86,7 +86,7 @@
   <div class="tabs" id="tabs">
     <button data-tab="sessions" class="active">Choose sessions</button>
     <button data-tab="auto">Automatic bookings</button>
-    <button data-tab="settings">Settings</button>
+    <button data-tab="settings" title="Settings">⚙</button>
   </div>
 
   <section id="tab-sessions">
@@ -102,7 +102,7 @@
   </section>
 
   <section id="tab-auto" hidden>
-    <h2>Selected sessions (booked automatically at 00:05 Sydney time, 7 days ahead)</h2>
+    <h2>Selected sessions (booked automatically at 08:01 Sydney time, 7 days ahead)</h2>
     <div id="selList"></div>
     <h2>Booking history</h2>
     <div id="logTable"></div>
@@ -410,23 +410,37 @@
     renderAuto();
   }
   function renderAuto() {
+    // --- 1. Selected sessions grouped by user ---
     var sl = $("selList"); sl.textContent = "";
-    if (!state.selections.length) sl.appendChild(el("p", { class: "muted", text: "Nothing selected yet." }));
-    state.selections.slice().sort(function (a, b) { return a.weekday - b.weekday || a.time.localeCompare(b.time); }).forEach(function (s) {
-      var now = el("button", { text: "Book now (test)" }); now.onclick = function () { bookNow(s, now); };
-      var rm = el("button", { text: "Remove", class: "danger" }); rm.onclick = function () { toggle(s); saveSelections(); };
-      sl.appendChild(el("div", { class: "card sel" }, [
-        el("span", {}, [el("b", { text: LONG[s.weekday] + " " + s.time + "  " + s.className }), el("br"),
-          el("span", { class: "muted", text: selWho(s) + " · " + KIND_LABEL[selKind(s)] })]),
-        el("span", {}, [now, document.createTextNode(" "), rm])]));
-    });
+    if (!state.selections.length) {
+      sl.appendChild(el("p", { class: "muted", text: "Nothing selected yet." }));
+    } else {
+      var sorted = state.selections.slice().sort(function (a, b) {
+        return selWho(a).localeCompare(selWho(b)) || a.weekday - b.weekday || a.time.localeCompare(b.time);
+      });
+      var currentWho = null;
+      sorted.forEach(function (s) {
+        var who = selWho(s);
+        if (who !== currentWho) {
+          currentWho = who;
+          sl.appendChild(el("h3", { text: who, style: "margin:16px 0 6px; font-size:1em; color:#555;" }));
+        }
+        var now = el("button", { text: "Book now (test)" }); now.onclick = function () { bookNow(s, now); };
+        var rm = el("button", { text: "Remove", class: "danger" }); rm.onclick = function () { toggle(s); saveSelections(); };
+        sl.appendChild(el("div", { class: "card sel" }, [
+          el("span", {}, [el("b", { text: LONG[s.weekday] + " " + s.time + "  " + s.className }), el("br"),
+            el("span", { class: "muted", text: KIND_LABEL[selKind(s)] })]),
+          el("span", {}, [now, document.createTextNode(" "), rm])]));
+      });
+    }
 
+    // --- 2. Booking history — last 10 entries ---
     var lt = $("logTable"); lt.textContent = "";
     if (!state.log.length) lt.appendChild(el("p", { class: "muted", text: "No bookings attempted yet." }));
     else {
       var t = el("table", {}, [el("thead", {}, [el("tr", {}, ["Run time", "Who", "Session", "Date", "Result"].map(function (h) { return el("th", { text: h }); }))])]);
       var tb = el("tbody");
-      state.log.slice().reverse().slice(0, 100).forEach(function (e) {
+      state.log.slice().reverse().slice(0, 10).forEach(function (e) {
         tb.appendChild(el("tr", {}, [
           el("td", { text: (e.time || "").replace("T", " ") }),
           el("td", { text: e.who || "" }),
@@ -436,14 +450,35 @@
       });
       t.appendChild(tb); lt.appendChild(t);
     }
+
+    // --- 3. Current bookings grouped by user ---
     var my = $("myBookings"); my.textContent = "";
     var items = (state.my && state.my.bookings) || [];
-    if (!items.length) my.textContent = "None listed (updated by 'Refresh from club site').";
-    else items.forEach(function (b) {
-      var bits = Object.keys(b).filter(function (k) { return k !== "who" && typeof b[k] !== "object" && b[k] !== "" && b[k] !== null; }).slice(0, 6).map(function (k) { return b[k]; });
-      if (b.who) bits.unshift(b.who);
-      my.appendChild(el("div", { class: "card", text: bits.join("  |  ") }));
-    });
+    if (!items.length) {
+      my.textContent = "None listed (updated by 'Refresh from club site').";
+    } else {
+      // Group by who
+      var byWho = {};
+      var whoOrder = [];
+      items.forEach(function (b) {
+        var w = b.who || "Unknown";
+        if (!byWho[w]) { byWho[w] = []; whoOrder.push(w); }
+        byWho[w].push(b);
+      });
+      whoOrder.forEach(function (w) {
+        my.appendChild(el("h3", { text: w, style: "margin:16px 0 6px; font-size:1em; color:#555;" }));
+        byWho[w].forEach(function (b) {
+          var dateStr = b.date || b.startDate || "";
+          var timeStr = b.time || b.startTime || "";
+          var name    = b.className || b.name || b.activityName || "";
+          var dur     = b.duration ? b.duration + " mins" : "";
+          var parts   = [dateStr, timeStr, name, dur].filter(Boolean);
+          my.appendChild(el("div", { class: "card", style: "margin-bottom:6px;" }, [
+            el("span", { text: parts.join("  ·  ") })
+          ]));
+        });
+      });
+    }
   }
   function show(tab) {
     ["sessions", "auto", "settings"].forEach(function (t) { $("tab-" + t).hidden = t !== tab; });
