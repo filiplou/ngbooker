@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T02:33:13.137Z",
+  "updated": "2026-10-18T02:35:27.862Z",
   "selections": [
     {
       "id": "Social Doubles B2 C1-2|3|19:30",
@@ -16,14 +16,14 @@
       "activityID": "RT1TU1930JAN26"
     },
     {
-      "id": "groupex|Theresa|BodyPump®|3|09:30",
-      "progId": "BodyPump®|3|09:30",
+      "id": "groupex|Theresa|Stretch And Stability|3|10:30",
+      "progId": "Stretch And Stability|3|10:30",
       "kind": "groupex",
       "who": "Theresa",
-      "className": "BodyPump®",
-      "time": "09:30",
+      "className": "Stretch And Stability",
+      "time": "10:30",
       "weekday": 3,
-      "activityID": "RE1TH0930APR24"
+      "activityID": "RE2TH1030"
     }
   ]
 }
