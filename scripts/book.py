@@ -12,7 +12,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from ngclient import NGError, SYD, client_from_env, date_of, find_booking
+from ngclient import NGError, SYD, client_from_env, date_of, find_booking, normalise_selection
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 DONE = {"booked", "waitlisted", "already"}
@@ -44,6 +44,8 @@ def record(log, mode, sel, prog, result, message=""):
         "time": now().isoformat(timespec="seconds"),
         "mode": mode,
         "selectionId": sel["id"],
+        "kind": sel.get("kind", "racquet"),
+        "who": sel.get("who", ""),
         "className": sel["className"],
         "date": prog["date"] if prog else "",
         "slot": sel["time"],
@@ -51,13 +53,13 @@ def record(log, mode, sel, prog, result, message=""):
         "message": message,
     }
     log.append(entry)
-    say(f"{sel['className']} {entry['date']} {sel['time']}: {result} {message}".strip())
+    say(f"[{entry['who']}] {sel['className']} {entry['date']} {sel['time']}: {result} {message}".strip())
 
 
-def try_book(client, d, prog):
+def try_book(client, d, prog, who=None):
     """Return (result, message). The site's MakeBooking call books the slot or joins the waiting list."""
     try:
-        chk = client.check(prog, d)
+        chk = client.check(prog, d, who)
     except NGError as e:
         msg = str(e)
         return ("already" if "already" in msg.lower() else "failed"), msg
@@ -66,7 +68,7 @@ def try_book(client, d, prog):
     if isinstance(chk, dict) and chk.get("isWaitingList"):
         on_wait_list = True
     try:
-        ok = client.book(prog)
+        ok = client.book(prog, who)
     except NGError as e:
         msg = str(e)
         return ("already" if "already" in msg.lower() else "failed"), msg
@@ -74,7 +76,7 @@ def try_book(client, d, prog):
         return "failed", "site did not confirm the booking"
     # Re-read bookings so we can report booked vs waiting list accurately.
     try:
-        b = find_booking(client.my_bookings(), prog["className"], prog["date"], prog["time"])
+        b = find_booking(client.my_bookings(who), prog["className"], prog["date"], prog["time"])
         if b is not None and "isOnWaitList" in b:
             on_wait_list = bool(b["isOnWaitList"])
     except NGError:
@@ -83,9 +85,10 @@ def try_book(client, d, prog):
 
 
 def attempt_pass(client, sels, log, mode, only_date=None):
-    """One pass over the visible days. Returns the set of (selection id, date) not yet published."""
+    """One pass over the visible days. Returns the set of (selection id, date) not yet published.
+    Each selection is for one session type (kind) and one member (who)."""
     unpublished = set()
-    bookings = None
+    bookings = {}  # per member, read lazily
     for d in client.dates():
         if client.is_blocked(d):
             continue
@@ -95,23 +98,26 @@ def attempt_pass(client, sels, log, mode, only_date=None):
         wanted = [s for s in sels if s["weekday"] == day.weekday()]
         if not wanted:
             continue
-        progs = client.programs(d)
+        progs = {}  # (kind, who) -> programs for this day
         for s in wanted:
             date_iso = day.isoformat()
             if already_done(log, s["id"], date_iso):
                 continue
-            prog = next((p for p in progs if p["id"] == s["id"]), None)
+            key = (s["kind"], s["who"])
+            if key not in progs:
+                progs[key] = client.programs(d, s["kind"], s["who"])
+            prog = next((p for p in progs[key] if p["id"] == s["progId"]), None)
             if prog is None:
                 unpublished.add((s["id"], date_iso))
                 continue
             if prog["dt"] <= now():
                 continue
-            if bookings is None:
-                bookings = client.my_bookings()
-            if find_booking(bookings, prog["className"], date_iso, prog["time"]):
+            if s["who"] not in bookings:
+                bookings[s["who"]] = client.my_bookings(s["who"])
+            if find_booking(bookings[s["who"]], prog["className"], date_iso, prog["time"]):
                 record(log, mode, s, prog, "already", "found in My Bookings")
                 continue
-            result, msg = try_book(client, d, prog)
+            result, msg = try_book(client, d, prog, s["who"])
             record(log, mode, s, prog, result, msg)
     return unpublished
 
@@ -126,14 +132,13 @@ def main():
     ap.add_argument("--poll", type=float, default=3.0)
     args = ap.parse_args()
 
-    sels = load("selections.json", {"selections": []})["selections"]
-    if args.selection_id:
-        sels = [s for s in sels if s["id"] == args.selection_id]
-    if not sels:
+    raw_sels = load("selections.json", {"selections": []})["selections"]
+    if not raw_sels:
         say("No matching selections - nothing to do.")
         return 0
 
     log = load("bookings-log.json", [])
+    sels = None  # normalised once we know the primary member (after login)
     start = now()
     only_date = None
     release_at = None
@@ -146,7 +151,7 @@ def main():
             return 0
         biz_day = start.date() + timedelta(days=1) if start.hour >= 12 else start.date()
         target = biz_day + timedelta(days=args.advance_days)
-        if not any(s["weekday"] == target.weekday() for s in sels):
+        if not any(s["weekday"] == target.weekday() for s in raw_sels):
             say(f"No selected session falls on {target:%A} {target} - nothing to wait for.")
             return 0
         hh, mm = map(int, args.release.split(":"))
@@ -154,7 +159,19 @@ def main():
         only_date = target
 
     client = client_from_env()
-    say(f"Logged in. Site={client.site_id} gold={client.is_gold}")
+    say(f"Logged in. Site={client.site_id} gold={client.is_gold} members={client.member_keys()}")
+    primary = client.member_keys()[0]
+    sels = [normalise_selection(s, primary) for s in raw_sels]
+    # Entries logged before kinds/members existed used the old id; map them so they still count as done.
+    for e in log:
+        if e.get("selectionId") and "|" in e["selectionId"] and not e.get("who"):
+            e["selectionId"] = normalise_selection({"id": e["selectionId"]}, primary)["id"]
+            e["who"], e["kind"] = primary, "racquet"
+    if args.selection_id:
+        sels = [s for s in sels if args.selection_id in (s["id"], s["progId"])]
+    if not sels:
+        say("No matching selections - nothing to do.")
+        return 0
 
     try:
         if args.mode == "now":

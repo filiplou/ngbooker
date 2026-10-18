@@ -5,17 +5,23 @@ The Club Lounge, the moment new days are released at **00:05 Sydney time**.
 
 ```
 main branch  : code (scripts/, workflows, index.html = dashboard on GitHub Pages)
-data branch  : selections.json, sessions.json, my-bookings.json, bookings-log.json, vault.json
+data branch  : selections.json, sessions.json, members.json, my-bookings.json, bookings-log.json, vault.json
 
 Dashboard --GitHub API--> data branch (selections.json)
 cron-job.org (23:55 Sydney) --dispatch--> book.yml (runs from main, environment "club")
    logs in via the club site's own API, waits for 00:05, books the day 7 days ahead,
    writes bookings-log.json to the data branch
-scrape.yml (daily / on demand) --> sessions.json + my-bookings.json on the data branch
+scrape.yml (daily / on demand) --> sessions.json + members.json + my-bookings.json on the data branch
 ```
 
 The scripts call the same web API as the club website (`/token`, `/api/ClubLounge/...`), so no browser
 is needed. Selections are stored by *class name + weekday + time*, so a choice repeats every week.
+
+## Racquets, Group exercise and members
+
+The dashboard has a **Racquets / Group exercise** switch and a **member selector** (one button per person on the account, by first name). A selection is stored per member and kind as `kind|member|session`, so each person's weekly choices and bookings are separate. Older selections (no member/kind) are treated as Racquets for the first member.
+
+**Group exercise is new and has not been verified against the live site.** After merging, run *Actions > Refresh session list*, check that the Group exercise tab fills in and each member appears, then try **Book now (test)** on one group class for a non-primary member before relying on the 00:05 run.
 
 ## Why two branches and an environment
 
