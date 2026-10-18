@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T03:26:12.775Z",
+  "updated": "2026-10-18T03:26:15.828Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -15,7 +15,8 @@
       "className": "Social Doubles C1-2",
       "time": "19:30",
       "weekday": 1,
-      "activityID": "RT1TU1930JAN26"
+      "activityID": "RT1TU1930JAN26",
+      "paused": true
     },
     {
       "id": "groupex|Theresa|Stretch And Stability|3|10:30",
