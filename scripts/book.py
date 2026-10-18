@@ -132,7 +132,11 @@ def main():
     ap.add_argument("--poll", type=float, default=3.0)
     args = ap.parse_args()
 
-    raw_sels = load("selections.json", {"selections": []})["selections"]
+    sel_data = load("selections.json", {"selections": []})
+    if sel_data.get("allPaused"):
+        say("All automatic bookings are paused - exiting.")
+        return 0
+    raw_sels = [s for s in sel_data["selections"] if not s.get("paused")]
     if not raw_sels:
         say("No matching selections - nothing to do.")
         return 0

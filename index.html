@@ -20,6 +20,7 @@
   button:disabled { opacity:.5; cursor:default; }
   .card { border:1px solid var(--border); background:var(--surface); border-radius:8px; padding:10px 12px; margin:6px 0; display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
   .card.sel { border-color:var(--accent); }
+  .card.paused { opacity:.45; border-style:dashed; }
   .card label { display:flex; gap:10px; align-items:center; cursor:pointer; flex:1; min-width:200px; }
   .muted { color:var(--muted); font-size:13px; }
   .tag { font-size:12px; padding:1px 8px; border-radius:10px; border:1px solid var(--border); background:#fff; }
@@ -104,6 +105,7 @@
   <section id="tab-auto" hidden>
     <h2>Selected sessions (booked automatically at 08:01 Sydney time, 7 days ahead)</h2>
     <div id="selList"></div>
+    <div id="pauseAllWrap" style="margin:10px 0 4px;"></div>
     <h2>Booking history</h2>
     <div id="logTable"></div>
     <h2>Current bookings on the club site</h2>
@@ -148,7 +150,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var KIND_LABEL = { racquet: "Racquets", groupex: "Group exercise" };
   var state = { sessions: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], my: null,
-                members: [], kind: "racquet", who: null };
+                members: [], kind: "racquet", who: null, allPaused: false };
 
   var CODE_BRANCH = "main";           // workflows are always dispatched from here
   var PBKDF2_ITER = 600000;
@@ -318,7 +320,8 @@
     return Promise.all([readFile("sessions.json"), readFile("selections.json"), readFile("bookings-log.json"), readFile("my-bookings.json"), members])
       .then(function (r) {
         state.sessions = r[0].data.sessions || []; state.updated = r[0].data.updated || "";
-        state.selections = r[1].data.selections || []; state.selSha = r[1].sha; state.dirty = false;
+        state.selections = r[1].data.selections || []; state.selSha = r[1].sha;
+        state.allPaused = r[1].data.allPaused || false; state.dirty = false;
         state.log = r[2].data || []; state.my = r[3].data; state.members = r[4];
         if (!state.who || state.members.indexOf(state.who) < 0) state.who = state.members[0] || null;
         render();
@@ -347,7 +350,7 @@
   function saveSelections() {
     if (needToken()) return;
     $("saveBtn").disabled = true;
-    var payload = { updated: new Date().toISOString(), selections: state.selections };
+    var payload = { updated: new Date().toISOString(), allPaused: state.allPaused, selections: state.selections };
     writeFile("selections.json", payload, state.selSha, "Update selections").then(function (r) {
       state.selSha = r.content.sha; state.dirty = false; log("Selection saved (" + state.selections.length + " sessions)."); render();
     }).catch(function (e) { log("Save failed: " + e.message, true); render(); });
@@ -425,13 +428,36 @@
           currentWho = who;
           sl.appendChild(el("h3", { text: who, style: "margin:16px 0 6px; font-size:1em; color:#555;" }));
         }
+        var isPaused = !!s.paused;
+        var pauseBtn = el("button", { text: isPaused ? "▶" : "⏸", title: isPaused ? "Resume" : "Pause" });
+        pauseBtn.onclick = function () {
+          s.paused = !s.paused;
+          state.dirty = true;
+          saveSelections();
+        };
         var now = el("button", { text: "Book now (test)" }); now.onclick = function () { bookNow(s, now); };
         var rm = el("button", { text: "Remove", class: "danger" }); rm.onclick = function () { toggle(s); saveSelections(); };
-        sl.appendChild(el("div", { class: "card sel" }, [
+        var cardClass = "card sel" + (isPaused ? " paused" : "");
+        sl.appendChild(el("div", { class: cardClass }, [
           el("span", {}, [el("b", { text: LONG[s.weekday] + " " + s.time + "  " + s.className }), el("br"),
-            el("span", { class: "muted", text: KIND_LABEL[selKind(s)] })]),
-          el("span", {}, [now, document.createTextNode(" "), rm])]));
+            el("span", { class: "muted", text: KIND_LABEL[selKind(s)] + (isPaused ? "  · paused" : "") })]),
+          el("span", {}, [pauseBtn, document.createTextNode(" "), now, document.createTextNode(" "), rm])]));
       });
+    }
+
+    // Pause-all toggle
+    var pw = $("pauseAllWrap"); pw.textContent = "";
+    if (state.selections.length) {
+      var pauseAll = el("button", {
+        text: state.allPaused ? "▶  Resume all automatic bookings" : "⏸  Pause all automatic bookings",
+        style: state.allPaused ? "border-color:var(--ok);color:var(--ok);" : "border-color:var(--warn);color:var(--warn);"
+      });
+      pauseAll.onclick = function () {
+        state.allPaused = !state.allPaused;
+        state.dirty = true;
+        saveSelections();
+      };
+      pw.appendChild(pauseAll);
     }
 
     // --- 2. Booking history — last 10 entries ---
