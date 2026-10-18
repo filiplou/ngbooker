@@ -33,7 +33,7 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Scrape Tennis Programs
+      - name: Scrape racquet and group exercise sessions
         env:
           NG_MEMBER_NUMBER: ${{ secrets.NGMEMBERNUMBER }}
           NG_PASSWORD: ${{ secrets.NGPASSWORD }}
@@ -43,7 +43,7 @@ jobs:
         run: |
           git -C data config user.name "ngbooker[bot]"
           git -C data config user.email "ngbooker@users.noreply.github.com"
-          git -C data add sessions.json my-bookings.json
+          git -C data add sessions.json my-bookings.json members.json
           git -C data diff --cached --quiet && exit 0
           git -C data commit -m "Refresh sessions"
           git -C data pull --rebase origin data

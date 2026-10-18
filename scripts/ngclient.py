@@ -12,6 +12,10 @@ BASE = os.environ.get("NG_BASE_URL", "https://members.ngclubs.com.au").rstrip("/
 API = BASE + "/api/ClubLounge"
 SENSITIVE = re.compile(r"member|email|phone|mobile|token|password", re.I)
 
+# Session types the club site offers, and the endpoint that lists them for a day.
+KINDS = {"racquet": "/AvailableTennisProgramsforDate", "groupex": "/AvailableClassesForDate"}
+DEFAULT_KIND = "racquet"
+
 
 class NGError(Exception):
     pass
@@ -38,11 +42,39 @@ def make_id(class_name, weekday, time_str):
     return f"{class_name}|{weekday}|{time_str}"
 
 
-def normalise_program(p):
+def selection_id(kind, who, prog_id):
+    return f"{kind}|{who}|{prog_id}"
+
+
+def normalise_selection(s, default_who):
+    """Selections saved before group exercise / members existed have no kind or who:
+    treat them as Racquets for the primary member. Returns a new dict with kind, who, progId and id."""
+    out = dict(s)
+    out["kind"] = s.get("kind") or DEFAULT_KIND
+    out["who"] = s.get("who") or default_who
+    out["progId"] = s.get("progId") or s["id"]
+    out["id"] = selection_id(out["kind"], out["who"], out["progId"])
+    return out
+
+
+def first_name_keys(names):
+    """Short, unique, non-secret key per member: the first name (index appended on a clash)."""
+    keys, seen = [], set()
+    for i, n in enumerate(names):
+        k = (str(n or "").strip().split(" ")[0]) or f"Member{i + 1}"
+        if k in seen:
+            k = f"{k}{i + 1}"
+        seen.add(k)
+        keys.append(k)
+    return keys
+
+
+def normalise_program(p, kind=DEFAULT_KIND):
     dt = parse_local(p["dateTimeAsISOString"])
     time_str = dt.strftime("%H:%M")
     return {
         "id": make_id(p["className"], dt.weekday(), time_str),
+        "kind": kind,
         "className": p["className"],
         "activityID": p.get("activityID"),
         "date": dt.date().isoformat(),
@@ -57,7 +89,7 @@ def public_view(n):
     """Version of a normalised program that is safe to publish."""
     skip = {"className", "activityID", "dateTimeAsISOString", "dateTime"}
     info = sanitize({k: v for k, v in n["raw"].items() if k not in skip})
-    return {k: n[k] for k in ("id", "className", "activityID", "date", "time", "weekday")} | {"info": info}
+    return {k: n[k] for k in ("id", "kind", "className", "activityID", "date", "time", "weekday")} | {"info": info}
 
 
 def date_of(d):
@@ -70,6 +102,7 @@ class NGClient:
         self.password = password
         self.s = requests.Session()
         self.s.headers["User-Agent"] = "Mozilla/5.0 (compatible; ngbooker)"
+        self.members = []
         self.member_id = None
         self.site_id = None
         self.is_gold = False
@@ -101,10 +134,27 @@ class NGClient:
             raise NGError(f"Login failed (HTTP {r.status_code}): {msg or 'unknown error'}")
         self.s.headers["Authorization"] = "Bearer " + r.json()["access_token"]
         graph = self._call("GET", "/GetMemberDetailGraph")
-        member = graph["members"][0]
-        self.member_id = member["memberID"]
-        self.site_id = member["sites"][0]["siteID"]
-        self.is_gold = bool(member.get("isGoldMembership"))
+        raw = graph["members"]
+        keys = first_name_keys([m.get("firstNames") for m in raw])
+        self.members = [
+            {"key": k, "memberID": m["memberID"], "siteID": m["sites"][0]["siteID"], "isGold": bool(m.get("isGoldMembership"))}
+            for k, m in zip(keys, raw)
+        ]
+        # The first member drives the date list and the "gold" rules, as before.
+        self.member_id = self.members[0]["memberID"]
+        self.site_id = self.members[0]["siteID"]
+        self.is_gold = self.members[0]["isGold"]
+
+    def member(self, who=None):
+        if not who:
+            return self.members[0]
+        for m in self.members:
+            if m["key"] == who:
+                return m
+        raise NGError(f"Unknown member '{who}'")
+
+    def member_keys(self):
+        return [m["key"] for m in self.members]
 
     # -- API ---------------------------------------------------------------
     def dates(self):
@@ -115,40 +165,45 @@ class NGClient:
             return bool(d.get("goldAvailableAfterHour"))
         return bool(d.get("goldOnly") or d.get("availableAfterHour"))
 
-    def programs(self, d):
-        data = {
-            "dateAsISOString": d["dateAsISOString"],
-            "siteID": self.site_id,
-            "memberID": self.member_id,
-        }
-        return [normalise_program(p) for p in (self._call("POST", "/AvailableTennisProgramsforDate", json=data) or [])]
+    def programs(self, d, kind=DEFAULT_KIND, who=None):
+        m = self.member(who)
+        data = {"dateAsISOString": d["dateAsISOString"], "siteID": m["siteID"], "memberID": m["memberID"]}
+        return [normalise_program(p, kind) for p in (self._call("POST", KINDS[kind], json=data) or [])]
 
-    def check(self, program, d):
+    def check(self, program, d, who=None):
+        m = self.member(who)
+        raw = program.get("raw") or {}
         data = {
             "dateAsISOString": d["dateAsISOString"],
-            "memberID": self.member_id,
-            "isGoldMember": self.is_gold,
+            "memberID": m["memberID"],
+            "isGoldMember": m["isGold"],
             "bookingsAvailableAfter": d.get("bookingsAvailableAfterHour"),
-            "siteID": self.site_id,
+            "siteID": m["siteID"],
             "selectedClassName": program["className"],
             "activityID": program["activityID"],
         }
+        if program.get("kind") == "groupex":
+            # The site's group exercise page sends the class time and a fixed 8 here.
+            data["dateAsISOString"] = raw.get("dateTimeAsISOString") or d["dateAsISOString"]
+            data["bookingsAvailableAfter"] = 8
+            data["ResourceProductID"] = raw.get("resourceProductID")
         return self._call("POST", "/CheckAvailability", json=data)
 
-    def book(self, program):
+    def book(self, program, who=None):
+        m = self.member(who)
         raw = program["raw"]
         data = {
             "dateTimeAsISOString": raw["dateTimeAsISOString"],
             "activityID": raw["activityID"],
-            "memberID": self.member_id,
-            "siteID": self.site_id,
+            "memberID": m["memberID"],
+            "siteID": m["siteID"],
             "dateTime": raw.get("dateTime"),
             "className": raw["className"],
         }
         return self._call("POST", "/MakeBooking", json=data)
 
-    def my_bookings(self):
-        data = self._call("GET", f"/GetMemberBookings/{self.member_id}")
+    def my_bookings(self, who=None):
+        data = self._call("GET", f"/GetMemberBookings/{self.member(who)['memberID']}")
         return (data or {}).get("item1") or []
 
 

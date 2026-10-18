@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """LOCAL ONLY: print the shape of the site's responses so field names/time formats can be verified.
 
     $env:NG_MEMBER_NUMBER = "..."; $env:NG_PASSWORD = "..."; python scripts/discover.py
@@ -26,6 +26,7 @@ def show(label, obj, limit=2):
 def main():
     c = client_from_env()
     print(f"Logged in OK. site={c.site_id} gold={c.is_gold}")
+    print("Members on this login:", [(m["key"], m["siteID"], m["isGold"]) for m in c.members])
     dates = c.dates()
     show("GetAvailableBookingDates (first 2 of %d)" % len(dates), dates)
     open_dates = [d for d in dates if not c.is_blocked(d)]
@@ -40,6 +41,15 @@ def main():
                 print(f"  parsed: {p['date']} {p['time']} weekday={p['weekday']} {p['className']!r}  "
                       f"(site shows dateTime={p['raw'].get('dateTime')!r})")
             break
+    for d in reversed(open_dates):  # same walk-back for Group Exercise
+        raw = c._call("POST", "/AvailableClassesForDate",
+                      json={"dateAsISOString": d["dateAsISOString"], "siteID": c.site_id, "memberID": c.member_id})
+        print(f"\nday {d['dateAsISOString'][:10]}: {len(raw or [])} group exercise classes")
+        if raw:
+            show("AvailableClassesForDate raw (first 2)", raw)
+            break
+    for m in c.members:
+        print(f"bookings for {m['key']}: {len(c.my_bookings(m['key']))}")
     show("GetMemberBookings item1 (first 2)", c.my_bookings())
 
 

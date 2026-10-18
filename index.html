@@ -90,6 +90,8 @@
   </div>
 
   <section id="tab-sessions">
+    <div class="days" id="kinds"></div>
+    <div class="days" id="members"></div>
     <div class="row" style="align-items:center">
       <div class="muted" id="sessionsInfo">Loading...</div>
       <div style="flex:0 0 auto"><button id="refreshBtn" title="Re-read the session list from the club website">Refresh from club site</button></div>
@@ -144,7 +146,9 @@
   var DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   var LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var $ = function (id) { return document.getElementById(id); };
-  var state = { sessions: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], my: null };
+  var KIND_LABEL = { racquet: "Racquets", groupex: "Group exercise" };
+  var state = { sessions: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], my: null,
+                members: [], kind: "racquet", who: null };
 
   var CODE_BRANCH = "main";           // workflows are always dispatched from here
   var PBKDF2_ITER = 600000;
@@ -309,20 +313,35 @@
 
   // ---- Data ------------------------------------------------------------
   function loadAll() {
-    return Promise.all([readFile("sessions.json"), readFile("selections.json"), readFile("bookings-log.json"), readFile("my-bookings.json")])
+    // members.json is optional: it does not exist until the first refresh after the group exercise update.
+    var members = readFile("members.json").then(function (r) { return r.data.members || []; }, function () { return []; });
+    return Promise.all([readFile("sessions.json"), readFile("selections.json"), readFile("bookings-log.json"), readFile("my-bookings.json"), members])
       .then(function (r) {
         state.sessions = r[0].data.sessions || []; state.updated = r[0].data.updated || "";
         state.selections = r[1].data.selections || []; state.selSha = r[1].sha; state.dirty = false;
-        state.log = r[2].data || []; state.my = r[3].data;
+        state.log = r[2].data || []; state.my = r[3].data; state.members = r[4];
+        if (!state.who || state.members.indexOf(state.who) < 0) state.who = state.members[0] || null;
         render();
         log("Loaded " + state.sessions.length + " sessions and " + state.selections.length + " selections.");
       })
       .catch(function (e) { log("Could not load data: " + e.message, true); });
   }
-  function isSelected(id) { return state.selections.some(function (s) { return s.id === id; }); }
+  // Selections saved before members/group exercise existed have no kind or who: they mean Racquets for the first member.
+  function selKind(s) { return s.kind || "racquet"; }
+  function selWho(s) { return s.who || state.members[0] || ""; }
+  function selKey(kind, who, progId) { return kind + "|" + who + "|" + progId; }
+  function selProg(s) { return s.progId || s.id; }
+  function isSelected(s) {
+    var key = selKey(s.kind || "racquet", state.who, s.id);
+    return state.selections.some(function (x) { return selKey(selKind(x), selWho(x), selProg(x)) === key; });
+  }
   function toggle(s) {
-    if (isSelected(s.id)) state.selections = state.selections.filter(function (x) { return x.id !== s.id; });
-    else state.selections.push({ id: s.id, className: s.className, time: s.time, weekday: s.weekday, activityID: s.activityID });
+    var kind = s.kind || "racquet", who = s.date ? state.who : selWho(s), prog = s.progId || s.id;
+    var key = selKey(kind, who, prog), before = state.selections.length;
+    state.selections = state.selections.filter(function (x) { return selKey(selKind(x), selWho(x), selProg(x)) !== key; });
+    if (state.selections.length === before) {
+      state.selections.push({ id: key, progId: prog, kind: kind, who: who, className: s.className, time: s.time, weekday: s.weekday, activityID: s.activityID });
+    }
     state.dirty = true; render();
   }
   function saveSelections() {
@@ -336,12 +355,38 @@
 
   // ---- Rendering -------------------------------------------------------
   function fmtDate(iso) { var p = iso.split("-"); return DAYS[(new Date(+p[0], p[1] - 1, +p[2]).getDay() + 6) % 7] + " " + p[2] + "/" + p[1]; }
+  function visibleSessions() {
+    return state.sessions.filter(function (s) {
+      if ((s.kind || "racquet") !== state.kind) return false;
+      return !s.who || !state.who || s.who.indexOf(state.who) >= 0;   // old data has no "who": shown for everybody
+    });
+  }
+  function spacesText(s) {
+    var n = s.info && s.info.spacesAvailable;
+    if (typeof n !== "number") return "";
+    return n > 0 ? n + " spaces" : "full (waiting list)";
+  }
   function render() {
-    var dates = []; state.sessions.forEach(function (s) { if (dates.indexOf(s.date) < 0) dates.push(s.date); });
+    var kinds = $("kinds"); kinds.textContent = "";
+    Object.keys(KIND_LABEL).forEach(function (k) {
+      var b = el("button", { text: KIND_LABEL[k], class: k === state.kind ? "active" : "" });
+      b.onclick = function () { state.kind = k; render(); };
+      kinds.appendChild(b);
+    });
+    var mem = $("members"); mem.textContent = "";
+    state.members.forEach(function (m) {
+      var b = el("button", { text: m, class: m === state.who ? "active" : "" });
+      b.onclick = function () { state.who = m; render(); };
+      mem.appendChild(b);
+    });
+    mem.hidden = state.members.length < 2;
+
+    var shown = visibleSessions();
+    var dates = []; shown.forEach(function (s) { if (dates.indexOf(s.date) < 0) dates.push(s.date); });
     if (!state.day || dates.indexOf(state.day) < 0) state.day = dates[0] || null;
-    $("sessionsInfo").textContent = state.sessions.length
-      ? state.sessions.length + " sessions across " + dates.length + " days. Last read from the club site: " + (state.updated ? state.updated.replace("T", " ") : "unknown")
-      : "No sessions yet - press 'Refresh from club site' and reload in about a minute.";
+    $("sessionsInfo").textContent = shown.length
+      ? shown.length + " " + KIND_LABEL[state.kind].toLowerCase() + " sessions across " + dates.length + " days. Last read from the club site: " + (state.updated ? state.updated.replace("T", " ") : "unknown")
+      : "No " + KIND_LABEL[state.kind].toLowerCase() + " sessions" + (state.who ? " for " + state.who : "") + " yet - press 'Refresh from club site' and reload in about a minute.";
 
     var days = $("days"); days.textContent = "";
     dates.forEach(function (d) {
@@ -351,11 +396,11 @@
     });
 
     var list = $("sessionList"); list.textContent = "";
-    state.sessions.filter(function (s) { return s.date === state.day; }).forEach(function (s) {
-      var cb = el("input", { type: "checkbox" }); cb.checked = isSelected(s.id); cb.onchange = function () { toggle(s); };
-      var info = el("span", {}, [el("b", { text: s.time + "  " + s.className })]);
+    shown.filter(function (s) { return s.date === state.day; }).forEach(function (s) {
+      var cb = el("input", { type: "checkbox" }); cb.checked = isSelected(s); cb.onchange = function () { toggle(s); };
+      var info = el("span", {}, [el("b", { text: s.time + "  " + s.className }), el("br"), el("span", { class: "muted", text: spacesText(s) })]);
       list.appendChild(el("div", { class: "card" + (cb.checked ? " sel" : "") }, [el("label", {}, [cb, info]),
-        el("span", { class: "muted", text: cb.checked ? "Auto-book every " + LONG[s.weekday] : "" })]));
+        el("span", { class: "muted", text: cb.checked ? "Auto-book every " + LONG[s.weekday] + " for " + state.who : "" })]));
     });
     if (state.day && !list.children.length) list.appendChild(el("p", { class: "muted", text: "No sessions on this day." }));
 
@@ -371,18 +416,20 @@
       var now = el("button", { text: "Book now (test)" }); now.onclick = function () { bookNow(s, now); };
       var rm = el("button", { text: "Remove", class: "danger" }); rm.onclick = function () { toggle(s); saveSelections(); };
       sl.appendChild(el("div", { class: "card sel" }, [
-        el("span", {}, [el("b", { text: LONG[s.weekday] + " " + s.time + "  " + s.className })]),
+        el("span", {}, [el("b", { text: LONG[s.weekday] + " " + s.time + "  " + s.className }), el("br"),
+          el("span", { class: "muted", text: selWho(s) + " · " + KIND_LABEL[selKind(s)] })]),
         el("span", {}, [now, document.createTextNode(" "), rm])]));
     });
 
     var lt = $("logTable"); lt.textContent = "";
     if (!state.log.length) lt.appendChild(el("p", { class: "muted", text: "No bookings attempted yet." }));
     else {
-      var t = el("table", {}, [el("thead", {}, [el("tr", {}, ["Run time", "Session", "Date", "Result"].map(function (h) { return el("th", { text: h }); }))])]);
+      var t = el("table", {}, [el("thead", {}, [el("tr", {}, ["Run time", "Who", "Session", "Date", "Result"].map(function (h) { return el("th", { text: h }); }))])]);
       var tb = el("tbody");
       state.log.slice().reverse().slice(0, 100).forEach(function (e) {
         tb.appendChild(el("tr", {}, [
           el("td", { text: (e.time || "").replace("T", " ") }),
+          el("td", { text: e.who || "" }),
           el("td", { text: e.className + " " + e.slot }),
           el("td", { text: e.date }),
           el("td", {}, [el("span", { class: e.result, text: e.result + (e.message ? " - " + e.message : "") })])]));
@@ -393,7 +440,8 @@
     var items = (state.my && state.my.bookings) || [];
     if (!items.length) my.textContent = "None listed (updated by 'Refresh from club site').";
     else items.forEach(function (b) {
-      var bits = Object.keys(b).filter(function (k) { return typeof b[k] !== "object" && b[k] !== "" && b[k] !== null; }).slice(0, 6).map(function (k) { return b[k]; });
+      var bits = Object.keys(b).filter(function (k) { return k !== "who" && typeof b[k] !== "object" && b[k] !== "" && b[k] !== null; }).slice(0, 6).map(function (k) { return b[k]; });
+      if (b.who) bits.unshift(b.who);
       my.appendChild(el("div", { class: "card", text: bits.join("  |  ") }));
     });
   }
@@ -407,7 +455,7 @@
     if (needToken()) return;
     if (state.dirty) { log("Save your selection before booking.", true); return; }
     btn.disabled = true;
-    dispatch("book.yml", { mode: "now", selection_id: s.id }).then(function () {
+    dispatch("book.yml", { mode: "now", selection_id: s.id }).then(function () {   // s.id is kind|who|progId (book.py also accepts the old id)
       log("Booking started for " + s.className + " " + s.time + ". Reload in ~30-60 seconds to see the result.");
     }).catch(function (e) { log("Could not start booking: " + e.message, true); }).then(function () { setTimeout(function () { btn.disabled = false; }, 5000); });
   }
