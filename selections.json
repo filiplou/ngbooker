@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T10:51:16.660Z",
+  "updated": "2026-10-18T21:58:29.404Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -27,16 +27,6 @@
       "time": "10:30",
       "weekday": 3,
       "activityID": "RE2TH1030"
-    },
-    {
-      "id": "groupex|Chantal|Pilates|0|11:00",
-      "progId": "Pilates|0|11:00",
-      "kind": "groupex",
-      "who": "Chantal",
-      "className": "Pilates",
-      "time": "11:00",
-      "weekday": 0,
-      "activityID": "RE1TU1100DEC24"
     }
   ]
 }
