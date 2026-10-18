@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Book (or join the waiting list for) the sessions selected on the dashboard.
 
---mode scheduled : nightly run. Waits for 00:05 Sydney time, then polls until the newly released
+--mode scheduled : morning run. Waits for 08:01 Sydney time, then polls until the newly released
                    day (today + advance days) appears and books every selected session on it.
 --mode now       : single pass over all visible days (used by the dashboard "Book now" button).
 """
@@ -126,7 +126,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["scheduled", "now"], default="scheduled")
     ap.add_argument("--selection-id", default="")
-    ap.add_argument("--release", default="00:05", help="HH:MM Sydney time the new day is published")
+    ap.add_argument("--release", default="08:01", help="HH:MM Sydney time the new day is published")
     ap.add_argument("--advance-days", type=int, default=7)
     ap.add_argument("--max-wait", type=int, default=300, help="seconds to keep polling after release")
     ap.add_argument("--poll", type=float, default=3.0)
@@ -144,10 +144,10 @@ def main():
     release_at = None
 
     if args.mode == "scheduled":
-        # Valid windows are around Sydney midnight (the workflow has a cron for each DST offset).
+        # Valid windows are around Sydney 08:01 (the workflow has a cron for each DST offset).
         minutes = start.hour * 60 + start.minute
-        if not (minutes >= 23 * 60 or minutes <= 90):
-            say(f"Outside the Sydney midnight window ({start:%H:%M}) - exiting.")
+        if not (7 * 60 <= minutes <= 9 * 60):
+            say(f"Outside the Sydney 08:01 window ({start:%H:%M}) - exiting.")
             return 0
         biz_day = start.date() + timedelta(days=1) if start.hour >= 12 else start.date()
         target = biz_day + timedelta(days=args.advance_days)
