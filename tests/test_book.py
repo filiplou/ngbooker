@@ -1,4 +1,4 @@
-﻿"""Offline tests: run with  python -m unittest discover -s tests  (no network, no credentials)."""
+"""Offline tests: run with  python -m unittest discover -s tests  (no network, no credentials)."""
 import sys
 import unittest
 from datetime import datetime, timedelta
@@ -67,6 +67,15 @@ class Tests(unittest.TestCase):
 
     def test_waiting_list(self):
         c, log = FakeClient(self.day, [self.prog], waitlist=True), []
+        self.run_pass(c, log)
+        self.assertEqual(log[0]["result"], "waitlisted")
+
+    def test_waiting_list_from_real_program_fields(self):
+        raw = {"className": "Social Tennis", "activityID": "A1", "dateTimeAsISOString": self.dt.strftime("%Y-%m-%d %H:%M:%S"),
+               "dateTime": self.dt.strftime("%Y-%m-%dT%H:%M:%S"), "spacesAvailable": -2, "bookButtonDisplayString": "Book into waiting list"}
+        prog = normalise_program(raw)
+        c, log = FakeClient(self.day, [prog]), []
+        c.my_bookings = lambda: []
         self.run_pass(c, log)
         self.assertEqual(log[0]["result"], "waitlisted")
 

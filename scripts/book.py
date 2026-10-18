@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Book (or join the waiting list for) the sessions selected on the dashboard.
 
 --mode scheduled : nightly run. Waits for 00:05 Sydney time, then polls until the newly released
@@ -61,7 +61,10 @@ def try_book(client, d, prog):
     except NGError as e:
         msg = str(e)
         return ("already" if "already" in msg.lower() else "failed"), msg
-    on_wait_list = bool(chk.get("isWaitingList")) if isinstance(chk, dict) else False
+    raw = prog.get("raw") or {}
+    on_wait_list = (raw.get("spacesAvailable", 0) or 0) < 0 or "waiting list" in str(raw.get("bookButtonDisplayString", "")).lower()
+    if isinstance(chk, dict) and chk.get("isWaitingList"):
+        on_wait_list = True
     try:
         ok = client.book(prog)
     except NGError as e:
