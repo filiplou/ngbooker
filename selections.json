@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T08:35:47.770Z",
+  "updated": "2026-10-18T08:35:56.588Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -33,6 +33,16 @@
       "progId": "Cardio Tennis|0|10:00",
       "kind": "racquet",
       "who": "Annika",
+      "className": "Cardio Tennis",
+      "time": "10:00",
+      "weekday": 0,
+      "activityID": "RT1MO1000JAN26A"
+    },
+    {
+      "id": "racquet|Chantal|Cardio Tennis|0|10:00",
+      "progId": "Cardio Tennis|0|10:00",
+      "kind": "racquet",
+      "who": "Chantal",
       "className": "Cardio Tennis",
       "time": "10:00",
       "weekday": 0,
