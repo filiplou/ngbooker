@@ -1,4 +1,12 @@
 {
-  "updated": "",
-  "selections": []
+  "updated": "2026-10-18T02:02:14.248Z",
+  "selections": [
+    {
+      "id": "Social Doubles B2 C1-2|3|19:30",
+      "className": "Social Doubles B2 C1-2",
+      "time": "19:30",
+      "weekday": 3,
+      "activityID": "RT1WE1930JAN26"
+    }
+  ]
 }
