@@ -87,6 +87,16 @@ class Tests(unittest.TestCase):
         self.assertEqual(pending, {(self.sel[0]["id"], self.day.isoformat())})
         self.assertEqual(log, [])
 
+    def test_only_books_the_day_seven_ahead(self):
+        # Same weekday, but today (and 14 days out) must never be attempted.
+        for offset in (0, 14):
+            other = self.day - timedelta(days=7) + timedelta(days=offset)
+            prog = make_prog(datetime(other.year, other.month, other.day, 18, 30, tzinfo=SYD))
+            c, log = FakeClient(other, [prog]), []
+            with mock.patch.object(book, "date_of", lambda d, o=other: o):
+                book.attempt_pass(c, self.sel, log, "now")
+            self.assertEqual((c.booked, log), ([], []))
+
     def test_no_double_booking(self):
         c, log = FakeClient(self.day, [self.prog]), []
         self.run_pass(c, log)

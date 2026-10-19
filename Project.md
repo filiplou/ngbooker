@@ -130,7 +130,7 @@ For more precise timing, trigger via cron-job.org instead of GitHub's built-in c
 
 - Open slot → booked. Full → the site's own booking call puts you on the waiting list.
 - Result of every attempt is shown in the *Booking history* section (`booked`, `waitlisted`, `already`, `failed`, `not-published`). Only the last 10 entries are shown.
-- **Book now (test)** triggers `book.yml` in `now` mode for that one selection across the days currently visible.
+- **Book now (test)** triggers `book.yml` in `now` mode for that one selection. Like the scheduled run, it only ever targets the day exactly 7 days ahead (never today or other visible days).
 - Silver members only see 7 days ahead; gold-only days are skipped automatically.
 
 ## Security notes
