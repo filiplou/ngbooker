@@ -1,16 +1,38 @@
 {
-  "updated": "2026-10-20T08:18:22+11:00",
+  "updated": "2026-10-20T10:48:56+11:00",
   "bookings": [
     {
-      "bookingID": 20955827,
+      "bookingID": 21084035,
       "displayDate": "Tuesday 20 October",
-      "displayTime": "8:30 AM",
-      "className": "Sculpt Booty Band",
-      "duration": "55 mins",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles C1-2 C1",
+      "duration": "60 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
       "firstName": null,
-      "who": "Theresa"
+      "who": "Filip"
+    },
+    {
+      "bookingID": 21084187,
+      "displayDate": "Thursday 22 October",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles B2 C1-2 C1",
+      "duration": "60 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": true,
+      "firstName": null,
+      "who": "Filip"
+    },
+    {
+      "bookingID": 21084036,
+      "displayDate": "Tuesday 27 October",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles C1-2 C1",
+      "duration": "60 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Filip"
     },
     {
       "bookingID": 20956188,
