@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Book (or join the waiting list for) the sessions selected on the dashboard.
 
+Only ever books the day exactly `advance days` (default 7) ahead, so a Tuesday selection books
+next Tuesday and never today or other days already visible.
+
 --mode scheduled : morning run. Waits for 08:01 Sydney time, then polls until the newly released
                    day (today + advance days) appears and books every selected session on it.
---mode now       : single pass over all visible days (used by the dashboard "Book now" button).
+--mode now       : single pass over that same day (used by the dashboard "Book now" button).
 """
 import argparse
 import json
@@ -84,16 +87,21 @@ def try_book(client, d, prog, who=None):
     return ("waitlisted" if on_wait_list else "booked"), ""
 
 
+def target_day(advance_days=7):
+    return now().date() + timedelta(days=advance_days)
+
+
 def attempt_pass(client, sels, log, mode, only_date=None):
-    """One pass over the visible days. Returns the set of (selection id, date) not yet published.
-    Each selection is for one session type (kind) and one member (who)."""
+    """One pass over the single target day (default: today + 7). Returns the set of
+    (selection id, date) not yet published. Each selection is for one session type (kind) and one member (who)."""
+    only_date = only_date or target_day()
     unpublished = set()
     bookings = {}  # per member, read lazily
     for d in client.dates():
         if client.is_blocked(d):
             continue
         day = date_of(d)
-        if only_date and day != only_date:
+        if day != only_date:
             continue
         wanted = [s for s in sels if s["weekday"] == day.weekday()]
         if not wanted:
@@ -147,7 +155,7 @@ def main():
     log = load("bookings-log.json", [])
     sels = None  # normalised once we know the primary member (after login)
     start = now()
-    only_date = None
+    only_date = target_day(args.advance_days)
     release_at = None
 
     if args.mode == "scheduled":
@@ -159,13 +167,13 @@ def main():
             say(f"Outside the booking window (release={args.release}, now={start:%H:%M}) - exiting.")
             return 0
         biz_day = start.date() + timedelta(days=1) if start.hour >= 12 else start.date()
-        target = biz_day + timedelta(days=args.advance_days)
-        if not any(s["weekday"] == target.weekday() for s in raw_sels):
-            say(f"No selected session falls on {target:%A} {target} - nothing to wait for.")
-            return 0
+        only_date = biz_day + timedelta(days=args.advance_days)
         hh, mm = map(int, args.release.split(":"))
         release_at = datetime(biz_day.year, biz_day.month, biz_day.day, hh, mm, tzinfo=SYD)
-        only_date = target
+
+    if not any(s["weekday"] == only_date.weekday() for s in raw_sels):
+        say(f"No selected session falls on {only_date:%A} {only_date} - nothing to do.")
+        return 0
 
     client = client_from_env()
     say(f"Logged in. Site={client.site_id} gold={client.is_gold} members={client.member_keys()}")
@@ -184,10 +192,8 @@ def main():
 
     try:
         if args.mode == "now":
-            attempt_pass(client, sels, log, "now")
+            attempt_pass(client, sels, log, "now", only_date=only_date)
         else:
-            # Catch anything outstanding on other visible days, then wait for the new day.
-            attempt_pass(client, sels, log, "scheduled")
             wait = (release_at - now()).total_seconds()
             if wait > 0:
                 say(f"Waiting {wait:.0f}s until {release_at:%H:%M} Sydney time...")
