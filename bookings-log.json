@@ -58,5 +58,29 @@
     "slot": "10:00",
     "result": "waitlisted",
     "message": ""
+  },
+  {
+    "time": "2026-10-20T08:16:48+11:00",
+    "mode": "now",
+    "selectionId": "racquet|Filip|Social Doubles C1-2|1|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles C1-2",
+    "date": "2026-10-20",
+    "slot": "19:30",
+    "result": "failed",
+    "message": "You have another concurrent (at the same time) reservation. Please cancel your existing reservation and try again or choose a class with a different time."
+  },
+  {
+    "time": "2026-10-20T08:16:57+11:00",
+    "mode": "now",
+    "selectionId": "racquet|Filip|Social Doubles C1-2|1|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles C1-2",
+    "date": "2026-10-27",
+    "slot": "19:30",
+    "result": "waitlisted",
+    "message": ""
   }
 ]
