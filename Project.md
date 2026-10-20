@@ -10,7 +10,8 @@ main branch  : code (scripts/, workflows, index.html = dashboard on GitHub Pages
 data branch  : selections.json, sessions.json, members.json, my-bookings.json, bookings-log.json, vault.json
 
 Dashboard --GitHub API--> data branch (selections.json)
-book.yml (cron: 20:30 + 21:30 UTC, covering AEDT/AEST) --runs from main, environment "club"-->
+cron-job.org (07:55 Sydney, daily) --workflow_dispatch--> book.yml (GitHub's own cron is a late backup)
+book.yml --runs from main, environment "club"-->
    logs in via the club site's own API, waits for the configured release time, books the day 7 days ahead,
    writes bookings-log.json to the data branch
 scrape.yml (daily / on demand) --> sessions.json + members.json + my-bookings.json on the data branch
@@ -107,18 +108,24 @@ redo the setup. Revoke the old token.
 
 ## Booking trigger
 
-`book.yml` runs on two cron entries (UTC 20:30 and 21:30, covering both AEDT UTC+11 and AEST UTC+10).
-The script checks that the current Sydney time is within 90 minutes of the configured release time
-(default `08:01`, set in ⚙ Settings -> Booking time) and exits silently otherwise, so both cron entries
-are harmless.
-
-For more precise timing, trigger via cron-job.org instead of GitHub's built-in cron (which can be
-15-30 minutes late):
+**Primary: cron-job.org.** GitHub's built-in `schedule:` is best-effort and has been observed running
+1-3 hours late, which misses the booking window. A cron-job.org job calls `workflow_dispatch` instead:
 
 - URL: `https://api.github.com/repos/filiplou/ngbooker/actions/workflows/book.yml/dispatches`
-- Method: POST, timezone `Australia/Sydney`, schedule **07:30 every day**
-- Headers: `Authorization: Bearer <the cron-job.org token>`, `Accept: application/vnd.github+json`
+- Method: POST, timezone `Australia/Sydney`, schedule **07:55 every day** (a few minutes before the release time,
+  so the runner can start and log in; the script then waits for the release time)
+- Headers: `Authorization: Bearer <the cron-job.org token>` (the `Bearer ` prefix is required, otherwise 401),
+  `Accept: application/vnd.github+json`, `User-Agent: ngbooker`
 - Body: `{"ref":"main","inputs":{"mode":"scheduled"}}`
+- A successful call returns `204 No Content`.
+
+If you change the release time in ⚙ Settings, move the cron-job.org schedule to match; it does not follow the
+dashboard setting. The dispatch must land within 90 minutes of the release time and no more than about an hour
+early (the job times out after 60 minutes).
+
+**Backup: GitHub cron.** `book.yml` also keeps two cron entries (UTC 20:30 and 21:30, covering AEDT UTC+11 and
+AEST UTC+10). The script exits silently if the current Sydney time is not within 90 minutes of the release
+time, and it never rebooks a session already done, so these are harmless.
 
 ## Pausing bookings
 
@@ -129,8 +136,10 @@ For more precise timing, trigger via cron-job.org instead of GitHub's built-in c
 ## Behaviour
 
 - Open slot → booked. Full → the site's own booking call puts you on the waiting list.
-- Result of every attempt is shown in the *Booking history* section (`booked`, `waitlisted`, `already`, `failed`, `not-published`). Only the last 10 entries are shown.
-- **Book now (test)** triggers `book.yml` in `now` mode for that one selection. Like the scheduled run, it only ever targets the day exactly 7 days ahead (never today or other visible days).
+- Only the day exactly 7 days ahead is ever attempted, so a Tuesday selection books next Tuesday and never today or other visible days (this avoids "concurrent reservation" errors).
+- Result of every attempt is shown in the *Booking history* section (`booked`, `waitlisted`, `already`, `failed`, `not-published`). The last 300 entries are stored in `bookings-log.json`; the dashboard shows the newest 10.
+- The booked/waitlisted result is taken from the site's My Bookings (`isOnWaitList`) after booking. The site may append the court to the name (for example `Social Doubles C1-2` becomes `Social Doubles C1-2 C1`), so a booking matches if its name equals the selection name or starts with it followed by a space.
+- **Book now (test)** triggers `book.yml` in `now` mode for that one selection. Like the scheduled run, it only targets the day 7 days ahead, so it does nothing if that date's weekday doesn't match the selection.
 - Silver members only see 7 days ahead; gold-only days are skipped automatically.
 
 ## Security notes
