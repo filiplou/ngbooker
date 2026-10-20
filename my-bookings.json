@@ -1,17 +1,6 @@
 {
-  "updated": "2026-10-20T11:13:15+11:00",
+  "updated": "2026-10-21T10:15:01+11:00",
   "bookings": [
-    {
-      "bookingID": 21084035,
-      "displayDate": "Tuesday 20 October",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
     {
       "bookingID": 21084187,
       "displayDate": "Thursday 22 October",
@@ -57,21 +46,32 @@
       "who": "Theresa"
     },
     {
-      "bookingID": 20956210,
-      "displayDate": "Thursday 22 October",
-      "displayTime": "10:30 AM",
-      "className": "Stretch And Stability",
-      "duration": "45 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": true,
-      "firstName": null,
-      "who": "Theresa"
-    },
-    {
       "bookingID": 21087683,
       "displayDate": "Friday 23 October",
       "displayTime": "8:30 AM",
       "className": "Cycle/tabata Studio 3 & 1",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 21125950,
+      "displayDate": "Monday 26 October",
+      "displayTime": "9:10 AM",
+      "className": "Sculpt Booty Band",
+      "duration": "45 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20957003,
+      "displayDate": "Tuesday 27 October",
+      "displayTime": "8:30 AM",
+      "className": "Sculpt Booty Band",
       "duration": "55 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
