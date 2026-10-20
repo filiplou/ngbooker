@@ -115,6 +115,7 @@
   <section id="tab-settings" hidden>
     <h2>Booking time</h2>
     <p class="muted">Sydney time at which new slots are published and bookings should be made (HH:MM, 24-hour).</p>
+    <p class="muted"><strong>If you change this time, also update the cron job on cron-job.org:</strong> sign in, open the job that triggers <code>book.yml</code>, go to the <em>Schedule</em> section and set it to run daily about 5 minutes <em>before</em> the new release time (e.g. 07:55 for a release time of 08:01), with timezone <code>Australia/Sydney</code>, then save. The booking script waits for the release time, so starting a few minutes early is correct. The release time here is not read by cron-job.org, so it will not follow automatically.</p>
     <div class="row">
       <div style="max-width:140px"><label>Release time<input type="text" id="releaseTime" placeholder="08:01" maxlength="5"></label></div>
     </div>
