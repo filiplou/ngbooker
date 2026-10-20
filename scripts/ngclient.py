@@ -237,7 +237,9 @@ def find_booking(bookings, class_name, date_iso, time_str=None):
             if class_name.lower() in text and date_iso in text:
                 return b
             continue
-        if str(b.get("className", "")).strip().lower() != class_name.strip().lower():
+        # The site appends the court/level to the booked name ('Social Doubles C1-2' -> 'Social Doubles C1-2 C1').
+        have, want_name = str(b.get("className", "")).strip().lower(), class_name.strip().lower()
+        if have != want_name and not have.startswith(want_name + " "):
             continue
         if not want.search(str(b["displayDate"])):
             continue

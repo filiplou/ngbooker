@@ -125,6 +125,19 @@ class Tests(unittest.TestCase):
         self.assertIsNone(ngclient.find_booking(b, "Social Doubles C1-2 C1", "2026-10-20", "18:30"))
         self.assertIsNone(ngclient.find_booking(b, "Social Doubles C1-2 C1", "2026-10-27", "19:30"))
         self.assertIsNone(ngclient.find_booking(b, "Other", "2026-10-20", "19:30"))
+        # Session name without the court suffix still matches, but only on a word boundary.
+        self.assertIsNotNone(ngclient.find_booking(b, "Social Doubles C1-2", "2026-10-20", "19:30"))
+        self.assertIsNone(ngclient.find_booking(b, "Social Doubles C1", "2026-10-20", "19:30"))
+
+    def test_status_comes_from_my_bookings_not_the_stale_waiting_list_label(self):
+        # Sold-out label on the session, but the site actually confirmed a real booking under a longer name.
+        raw = {"className": "Social Tennis", "activityID": "A1", "dateTimeAsISOString": self.dt.strftime("%Y-%m-%d %H:%M:%S"),
+               "dateTime": self.dt.strftime("%Y-%m-%dT%H:%M:%S"), "spacesAvailable": 0, "bookButtonDisplayString": "Book into waiting list"}
+        c, log = FakeClient(self.day, [normalise_program(raw)]), []
+        c.my_bookings = lambda who=None: [{"className": "Social Tennis C1", "displayDate": self.day.strftime("%A %d %B"),
+                                           "displayTime": "6:30 PM", "isOnWaitList": False}] if c.booked else []
+        self.run_pass(c, log)
+        self.assertEqual(log[0]["result"], "booked")
 
     def test_legacy_selection_defaults_to_racquet_for_first_member(self):
         s = normalise_selection({"id": "Social Tennis|1|18:30", "className": "Social Tennis", "time": "18:30", "weekday": 1}, "Filip")
