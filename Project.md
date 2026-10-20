@@ -27,8 +27,8 @@ Tick a session to add it; untick to remove. Press **Save selection** to persist.
 **Automatic bookings** — shows:
 - *Selected sessions* grouped by member. Each entry has a ⏸ pause button (skips that session for the next booking run) and a **Book now (test)** button.
 - *⏸ Pause all automatic bookings* toggle — suspends all bookings in one tap.
-- *Booking history* — last 10 booking attempts with result (`booked`, `waitlisted`, `already`, `failed`, `not-published`).
-- *Current bookings on the club site* grouped by member, refreshed by the scrape workflow.
+- *Current bookings on the club site* grouped by member, each with a Booked / Waitlisted tag, refreshed by the scrape workflow.
+- *Booking history* (bottom of the page) — last 10 booking attempts with result (`booked`, `waitlisted`, `already`, `failed`, `not-published`).
 
 **⚙ Settings** — configure the release time (default `08:01`), change the passphrase or GitHub token, lock this device.
 
