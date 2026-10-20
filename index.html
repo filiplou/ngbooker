@@ -503,8 +503,10 @@
           var durRaw  = b.duration || "";
           var dur     = durRaw ? (String(durRaw).toLowerCase().includes("min") ? String(durRaw) : durRaw + " mins") : "";
           var parts   = [dateStr, timeStr, name, dur].filter(Boolean);
+          var wait    = b.isOnWaitList === true;
           my.appendChild(el("div", { class: "card", style: "margin-bottom:6px;" }, [
-            el("span", { text: parts.join("  ·  ") })
+            el("span", { text: parts.join("  ·  ") }),
+            el("span", { class: "tag " + (wait ? "waitlisted" : "booked"), text: wait ? "Waitlisted" : "Booked" })
           ]));
         });
       });
