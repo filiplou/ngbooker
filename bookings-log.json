@@ -82,5 +82,17 @@
     "slot": "19:30",
     "result": "waitlisted",
     "message": ""
+  },
+  {
+    "time": "2026-10-22T08:42:32+11:00",
+    "mode": "now",
+    "selectionId": "groupex|Theresa|Stretch And Stability|3|10:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Stretch And Stability",
+    "date": "2026-10-29",
+    "slot": "10:30",
+    "result": "waitlisted",
+    "message": ""
   }
 ]
