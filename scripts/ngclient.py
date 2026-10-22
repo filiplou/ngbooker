@@ -2,10 +2,12 @@
 import json
 import os
 import re
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import requests
+from requests.exceptions import ReadTimeout, ConnectionError as RequestsConnectionError
 
 SYD = ZoneInfo("Australia/Sydney")
 BASE = os.environ.get("NG_BASE_URL", "https://members.ngclubs.com.au").rstrip("/")
@@ -109,7 +111,12 @@ class NGClient:
 
     # -- low level ---------------------------------------------------------
     def _call(self, method, path, **kw):
-        r = self.s.request(method, API + path, timeout=30, **kw)
+        try:
+            r = self.s.request(method, API + path, timeout=30, **kw)
+        except ReadTimeout:
+            raise NGError(f"Request timed out: {path}")
+        except RequestsConnectionError as e:
+            raise NGError(f"Connection error on {path}: {e}")
         if r.status_code >= 400:
             msg = None
             try:
@@ -120,20 +127,39 @@ class NGClient:
             raise NGError(msg or f"HTTP {r.status_code} on {path}")
         return r.json() if r.content else None
 
-    def login(self):
-        r = self.s.post(
-            BASE + "/token",
-            data={"username": self.username, "password": self.password, "grant_type": "password"},
-            timeout=30,
-        )
-        if r.status_code != 200:
+    def login(self, retries=3, retry_delay=10):
+        """Login with retries to handle transient site timeouts."""
+        last_err = None
+        for attempt in range(1, retries + 1):
             try:
-                msg = r.json().get("error_description")
-            except ValueError:
-                msg = None
-            raise NGError(f"Login failed (HTTP {r.status_code}): {msg or 'unknown error'}")
-        self.s.headers["Authorization"] = "Bearer " + r.json()["access_token"]
-        graph = self._call("GET", "/GetMemberDetailGraph")
+                r = self.s.post(
+                    BASE + "/token",
+                    data={"username": self.username, "password": self.password, "grant_type": "password"},
+                    timeout=30,
+                )
+            except (ReadTimeout, RequestsConnectionError) as e:
+                last_err = NGError(f"Login timed out (attempt {attempt}/{retries}): {e}")
+                if attempt < retries:
+                    time.sleep(retry_delay)
+                continue
+            if r.status_code != 200:
+                try:
+                    msg = r.json().get("error_description")
+                except ValueError:
+                    msg = None
+                raise NGError(f"Login failed (HTTP {r.status_code}): {msg or 'unknown error'}")
+            self.s.headers["Authorization"] = "Bearer " + r.json()["access_token"]
+            try:
+                graph = self._call("GET", "/GetMemberDetailGraph")
+            except NGError as e:
+                last_err = NGError(f"GetMemberDetailGraph failed (attempt {attempt}/{retries}): {e}")
+                if attempt < retries:
+                    time.sleep(retry_delay)
+                    self.s.headers.pop("Authorization", None)
+                continue
+            break
+        else:
+            raise last_err
         raw = graph["members"]
         keys = first_name_keys([m.get("firstNames") for m in raw])
         self.members = [
