@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-18T21:58:29.404Z",
+  "updated": "2026-10-22T06:38:52.867Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -17,16 +17,6 @@
       "weekday": 1,
       "activityID": "RT1TU1930JAN26",
       "paused": false
-    },
-    {
-      "id": "groupex|Theresa|Stretch And Stability|3|10:30",
-      "progId": "Stretch And Stability|3|10:30",
-      "kind": "groupex",
-      "who": "Theresa",
-      "className": "Stretch And Stability",
-      "time": "10:30",
-      "weekday": 3,
-      "activityID": "RE2TH1030"
     }
   ]
 }
