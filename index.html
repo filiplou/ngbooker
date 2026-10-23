@@ -24,6 +24,9 @@
   .card label { display:flex; gap:10px; align-items:center; cursor:pointer; flex:1; min-width:200px; }
   .muted { color:var(--muted); font-size:13px; }
   .tag { font-size:12px; padding:1px 8px; border-radius:10px; border:1px solid var(--border); background:#fff; }
+  .tag.auto { color:var(--accent); border-color:var(--accent); }
+  .tag.manual { color:var(--muted); }
+  .tags { display:flex; gap:6px; flex-wrap:wrap; }
   .booked,.already { color:var(--ok); } .waitlisted { color:var(--warn); } .failed,.not-published { color:var(--bad); }
   table { width:100%; border-collapse:collapse; font-size:14px; }
   th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
@@ -373,6 +376,41 @@
     if (typeof n !== "number") return "";
     return n > 0 ? n + " spaces" : "full (waiting list)";
   }
+  var MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  function time24(s) {
+    var m = /^\s*(\d{1,2}):(\d{2})\s*([ap])/i.exec(String(s || ""));
+    if (!m) return "";
+    var h = parseInt(m[1], 10) % 12 + (m[3].toLowerCase() === "p" ? 12 : 0);
+    return (h < 10 ? "0" : "") + h + ":" + m[2];
+  }
+  function dayMonth(s) {
+    var m = /(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)/.exec(String(s || ""));
+    var mi = m ? MONTHS.indexOf(m[2].toLowerCase()) : -1;
+    return mi < 0 ? "" : (mi + 1) + "-" + parseInt(m[1], 10);
+  }
+  function isoDayMonth(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ""));
+    return m ? parseInt(m[2], 10) + "-" + parseInt(m[3], 10) : "";
+  }
+  function nameMatches(have, want) {
+    var a = String(have || "").trim().toLowerCase(), b = String(want || "").trim().toLowerCase();
+    return !!b && (a === b || a.indexOf(b + " ") === 0);
+  }
+  // A current booking counts as automatic only if the scheduled run logged that it made it.
+  function isAutomatic(b) {
+    var name = b.className || b.name || b.activityName || "";
+    var who = b.who || "";
+    var dm = dayMonth(b.displayDate || b.date || b.startDate || "");
+    var tm = time24(b.displayTime || b.time || b.startTime || "");
+    return state.log.some(function (e) {
+      if (e.mode !== "scheduled" || (e.result !== "booked" && e.result !== "waitlisted")) return false;
+      if ((e.who || state.members[0] || "") !== who) return false;
+      if (!nameMatches(name, e.className)) return false;
+      if (dm && isoDayMonth(e.date) !== dm) return false;
+      if (tm && e.slot && e.slot !== tm) return false;
+      return true;
+    });
+  }
   function render() {
     var kinds = $("kinds"); kinds.textContent = "";
     Object.keys(KIND_LABEL).forEach(function (k) {
@@ -505,9 +543,14 @@
           var dur     = durRaw ? (String(durRaw).toLowerCase().includes("min") ? String(durRaw) : durRaw + " mins") : "";
           var parts   = [dateStr, timeStr, name, dur].filter(Boolean);
           var wait    = b.isOnWaitList === true;
+          var auto    = isAutomatic(b);
           my.appendChild(el("div", { class: "card", style: "margin-bottom:6px;" }, [
             el("span", { text: parts.join("  ·  ") }),
-            el("span", { class: "tag " + (wait ? "waitlisted" : "booked"), text: wait ? "Waitlisted" : "Booked" })
+            el("span", { class: "tags" }, [
+              el("span", { class: "tag " + (auto ? "auto" : "manual"), text: auto ? "Auto" : "Manual",
+                title: auto ? "Booked automatically by a scheduled run" : "Booked manually (not by a scheduled run)" }),
+              el("span", { class: "tag " + (wait ? "waitlisted" : "booked"), text: wait ? "Waitlisted" : "Booked" })
+            ])
           ]));
         });
       });
