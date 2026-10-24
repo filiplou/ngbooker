@@ -333,6 +333,36 @@ class Tests(unittest.TestCase):
         self.assertTrue(c.check(courts[0], d, "Filip")["isAvailable"])
         self.assertFalse(c.check(courts[1], d, "Filip")["isAvailable"])
 
+    def test_court_api_error_includes_facility_duration_and_date(self):
+        c = ngclient.NGClient("testuser", "testpw")
+        c.members = [{"key": "Filip", "memberID": "M123", "siteID": "RY", "isAceMembership": True}]
+        c._facilities_cache = {
+            "RY": [{
+                "facilityName": "SYNTH COURTS",
+                "durations": [{"durationName": "60 mins", "activityID": "ACT60", "duration": 60}],
+            }]
+        }
+        c._call = mock.Mock(side_effect=NGError("HTTP 500 POST /GetSlotAvailabilityForActivity: Error Occured"))
+        d = {"dateAsISOString": "2026-10-30T00:00:00"}
+
+        with self.assertRaisesRegex(
+            NGError,
+            r"facility='SYNTH COURTS'.*duration='60 mins'.*activityID='ACT60'.*date='2026-10-30T00:00:00'",
+        ):
+            c.courts(d, "Filip")
+
+    def test_http_error_includes_status_method_and_endpoint(self):
+        c = ngclient.NGClient("testuser", "testpw")
+        response = mock.Mock(status_code=500)
+        response.json.return_value = {"Message": "Error Occured"}
+        c.s.request = mock.Mock(return_value=response)
+
+        with self.assertRaisesRegex(
+            NGError,
+            r"HTTP 500 GET /GetAvailableBookingDates: Error Occured",
+        ):
+            c._call("GET", "/GetAvailableBookingDates")
+
     def test_unavailable_court_is_not_booked(self):
         facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
         duration = {"durationName": "60 mins", "activityID": "ACT123", "duration": 60}

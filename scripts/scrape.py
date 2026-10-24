@@ -3,6 +3,7 @@
 on the account, plus each member's current bookings, into data/*.json."""
 import json
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -22,11 +23,21 @@ def main():
     for kind in KINDS:
         for m in client.members:
             for d in days:
+                date = d.get("dateAsISOString", "unknown")
+                started = time.monotonic()
+                print(f"Fetching {kind} for {m['key']} on {date}", flush=True)
                 try:
                     progs = client.programs(d, kind, m["key"])
                 except NGError as e:
-                    print(f"WARNING: {kind} for {m['key']} on {d.get('dateAsISOString')}: {e}", file=sys.stderr)
+                    elapsed = time.monotonic() - started
+                    print(
+                        f"WARNING: {kind} for {m['key']} on {date} failed after {elapsed:.1f}s: {e}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
                     continue
+                elapsed = time.monotonic() - started
+                print(f"Fetched {len(progs)} {kind} for {m['key']} on {date} in {elapsed:.1f}s", flush=True)
                 for p in progs:
                     v = public_view(p)
                     k = (kind, v["date"], v["time"], v["className"], v["activityID"])
@@ -42,7 +53,7 @@ def main():
         try:
             bookings += [b | {"who": m["key"]} for b in sanitize(client.my_bookings(m["key"]))]
         except NGError as e:
-            print(f"WARNING: bookings for {m['key']}: {e}", file=sys.stderr)
+            print(f"WARNING: bookings for {m['key']} failed: {e}", file=sys.stderr, flush=True)
     write("my-bookings.json", {"updated": stamp, "bookings": bookings})
     counts = {k: sum(1 for s in sessions if s["kind"] == k) for k in KINDS}
     print(f"Saved {len(sessions)} sessions {counts} for {len(client.members)} members.")

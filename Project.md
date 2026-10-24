@@ -17,6 +17,11 @@ book.yml --runs from main, environment "club"-->
 scrape.yml (daily / on demand) --> sessions.json + members.json + my-bookings.json on the data branch
 ```
 
+The refresh workflow checks availability across multiple dates and members and has a 10-minute timeout. It logs
+progress for each member/date lookup so a timeout shows where the scan stopped. If an individual lookup fails
+(for example, the club API returns an error for a court date), the warning includes the request context and the
+scraper continues, so that lookup may be missing from the refreshed data.
+
 The scripts call the same web API as the club website (`/token`, `/api/ClubLounge/...`), so no browser
 is needed. Selections are stored by *class name + weekday + time*, so a choice repeats every week.
 
