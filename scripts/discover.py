@@ -48,6 +48,25 @@ def main():
         if raw:
             show("AvailableClassesForDate raw (first 2)", raw)
             break
+    # --- Courts: show facilities first, then slot availability ---
+    print("\n=== GetAvailableFacilitiesForSite (raw) ===")
+    try:
+        m0 = c.members[0]
+        fac_raw = c._call(
+            "GET",
+            f"/GetAvailableFacilitiesForSite?siteID={m0['siteID']}"
+            f"&isAceMembership={str(m0.get('isAceMembership', True)).lower()}",
+        )
+        show("GetAvailableFacilitiesForSite response", fac_raw)
+        facs = c.facilities()
+        print(f"\nfacilities() returned {len(facs)} facilities")
+        for fac in facs:
+            durs = fac.get("durations") or []
+            print(f"  facility: {fac.get('facilityName')!r}  type={fac.get('facilityType')!r}"
+                  f"  durations={len(durs)}  activityIDs={[d.get('activityID') for d in durs]}")
+    except NGError as e:
+        print(f"Facilities error: {e}")
+
     for d in reversed(open_dates):  # walk-back for Courts
         try:
             courts = c.programs(d, kind="courts")
@@ -57,7 +76,22 @@ def main():
                 for p in courts[:5]:
                     print(f"  parsed: {p['date']} {p['time']} weekday={p['weekday']} {p['className']!r}")
                 break
-        except Exception as e:
+            else:
+                # Show raw slot response for first facility to diagnose empty results
+                facs = c.facilities()
+                if facs:
+                    fac = facs[0]
+                    durs = fac.get("durations") or []
+                    if durs:
+                        raw_slots = c._call("POST", "/GetSlotAvailabilityForActivity", json={
+                            "memberID": c.member_id,
+                            "activityID": durs[0].get("activityID"),
+                            "onDate": d["dateAsISOString"],
+                            "siteID": c.site_id,
+                        })
+                        print(f"  Raw GetSlotAvailabilityForActivity response type={type(raw_slots).__name__}:")
+                        show("GetSlotAvailabilityForActivity response", raw_slots)
+        except NGError as e:
             print(f"Courts check error: {e}")
             break
     for m in c.members:

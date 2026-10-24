@@ -70,6 +70,8 @@ def try_book(client, d, prog, who=None):
     on_wait_list = (raw.get("spacesAvailable", 0) or 0) < 0 or "waiting list" in str(raw.get("bookButtonDisplayString", "")).lower()
     if isinstance(chk, dict) and chk.get("isWaitingList"):
         on_wait_list = True
+    if prog.get("kind") == "courts" and isinstance(chk, dict) and chk.get("isAvailable") is False:
+        return "failed", "court slot is unavailable"
     try:
         ok = client.book(prog, who)
     except NGError as e:

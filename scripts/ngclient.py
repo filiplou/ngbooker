@@ -132,7 +132,11 @@ def normalise_program(p, kind=DEFAULT_KIND):
 
 
 def normalise_court_slot(slot, facility, duration, day_date=None, kind="courts"):
-    """Convert a court slot from GetSlotAvailabilityForActivity into a normalised program dict."""
+    """Convert a court slot from GetSlotAvailabilityForActivity into a normalised program dict.
+
+    The className includes the duration (e.g. "Synth Court 1 (60 min)") so that
+    30/60/90-min slots for the same court are distinct selectable items with unique IDs.
+    """
     product_name = str(slot.get("productName", "")).strip()
     facility_name = str(facility.get("facilityName", "")).strip()
     if product_name.lower().startswith("court"):
@@ -147,7 +151,11 @@ def normalise_court_slot(slot, facility, duration, day_date=None, kind="courts")
     else:
         base_facility = facility_name
 
-    class_name = f"{base_facility} {court_label}".strip() if base_facility else court_label
+    base_class_name = f"{base_facility} {court_label}".strip() if base_facility else court_label
+
+    # Include the duration in the display name and ID so 30/60/90-min slots are distinct.
+    dur_mins = duration.get("duration", 60)
+    class_name = f"{base_class_name} ({dur_mins} min)"
 
     dt_str = slot.get("dateTime") or slot.get("dateTimeAsISOString")
     if dt_str:
@@ -163,9 +171,9 @@ def normalise_court_slot(slot, facility, duration, day_date=None, kind="courts")
     raw = dict(slot)
     raw.update({
         "facilityName": facility.get("facilityName"),
-        "facilityType": facility.get("facilityType", "TENNIS_SYNTHETIC"),
-        "duration": duration.get("duration", 60),
-        "durationName": duration.get("durationName", "60 mins"),
+        "facilityType": facility.get("facilityType", "Racquets"),
+        "duration": dur_mins,
+        "durationName": duration.get("durationName", f"{dur_mins} Mins"),
         "activityID": duration.get("activityID"),
         "className": class_name,
         "dateTimeAsISOString": dt.isoformat(),
@@ -313,30 +321,46 @@ class NGClient:
         facs = self.facilities(who)
         day_date = date_of(d)
         all_courts = []
+        seen_ids = set()  # deduplicate by (className, time) across durations
         for fac in facs:
+            facility_text = " ".join((
+                str(fac.get("facilityName", "")),
+                str(fac.get("facilityType", "")),
+            ))
+            if "squash" in facility_text.lower():
+                continue
             durs = fac.get("durations") or []
             if not durs:
                 continue
-            duration = durs[0]
-            activity_id = duration.get("activityID")
-            if not activity_id:
-                continue
-            data = {
-                "memberID": m["memberID"],
-                "activityID": activity_id,
-                "onDate": d["dateAsISOString"],
-                "siteID": m["siteID"],
-            }
-            slots_data = self._call("POST", "/GetSlotAvailabilityForActivity", json=data)
-            raw_slots = []
-            if isinstance(slots_data, list):
-                for item in slots_data:
-                    if isinstance(item, list):
-                        raw_slots.extend(item)
-                    elif isinstance(item, dict):
-                        raw_slots.append(item)
-            for slot in raw_slots:
-                all_courts.append(normalise_court_slot(slot, fac, duration, day_date, kind="courts"))
+            for duration in durs:  # query every duration (30, 60, 90 min)
+                activity_id = duration.get("activityID")
+                if not activity_id:
+                    continue
+                data = {
+                    "memberID": m["memberID"],
+                    "activityID": activity_id,
+                    "onDate": d["dateAsISOString"],
+                    "siteID": m["siteID"],
+                }
+                slots_data = self._call("POST", "/GetSlotAvailabilityForActivity", json=data)
+                raw_slots = []
+                if isinstance(slots_data, list):
+                    for item in slots_data:
+                        if isinstance(item, list):
+                            raw_slots.extend(item)
+                        elif isinstance(item, dict):
+                            raw_slots.append(item)
+                elif isinstance(slots_data, dict):
+                    # Some API responses wrap slots in a dict
+                    for v in slots_data.values():
+                        if isinstance(v, list):
+                            raw_slots.extend(v)
+                for slot in raw_slots:
+                    court = normalise_court_slot(slot, fac, duration, day_date, kind="courts")
+                    key = (court["className"], court["time"], duration.get("duration"))
+                    if key not in seen_ids:
+                        seen_ids.add(key)
+                        all_courts.append(court)
         return all_courts
 
     def programs(self, d, kind=DEFAULT_KIND, who=None):
@@ -348,9 +372,14 @@ class NGClient:
 
     def check(self, program, d, who=None):
         if program.get("kind") == "courts":
-            raw = program.get("raw") or {}
-            is_avail = raw.get("status") == "Available" or raw.get("spacesAvailable", 0) > 0
-            return {"isWaitingList": False, "isAvailable": is_avail}
+            current = next(
+                (p for p in self.courts(d, who) if p["id"] == program["id"]),
+                None,
+            )
+            return {
+                "isWaitingList": False,
+                "isAvailable": current is not None and current["raw"].get("status") == "Available",
+            }
         m = self.member(who)
         raw = program.get("raw") or {}
         data = {
@@ -409,7 +438,12 @@ def client_from_env():
 
 def find_booking(bookings, class_name, date_iso, time_str=None):
     """Match an existing booking. The site's My Bookings items have className, displayDate
-    ('Tuesday 20 October') and displayTime ('7:30 PM'); no ISO date."""
+    ('Tuesday 20 October') and displayTime ('7:30 PM'); no ISO date.
+
+    The site encodes court bookings as e.g. 'Tennis Court Hire 0.5 Hr C3' where 'C3' is
+    court 3. Our generated names are 'Synth Court 3 (60 min)'. We match via court number
+    extracted from either format: 'court 3', 'Court 3', or 'C3' at the end of the string.
+    """
     day = datetime.fromisoformat(date_iso)
     want = re.compile(r"\b%d\s+%s\b" % (day.day, day.strftime("%B")), re.I)
     for b in bookings or []:
@@ -424,11 +458,20 @@ def find_booking(bookings, class_name, date_iso, time_str=None):
             continue
         # The site appends the court/level to the booked name ('Social Doubles C1-2' -> 'Social Doubles C1-2 C1').
         have, want_name = str(b.get("className", "")).strip().lower(), class_name.strip().lower()
-        if have == want_name or have.startswith(want_name + " ") or want_name.startswith(have + " "):
+        if have == want_name or have.startswith(want_name + " "):
             return b
-        # Check matching court numbers for court bookings (e.g. "SYNTH Court 1" and "Synthetic Court 1" or "Court 1")
-        mc_have = re.search(r"\bcourt\s*(\d+)\b", have)
-        mc_want = re.search(r"\bcourt\s*(\d+)\b", want_name)
-        if mc_have and mc_want and mc_have.group(1) == mc_want.group(1):
+        # Extract court number from either format: 'court 3', 'Court 3', or trailing 'C3'.
+        # Covers our names ("synth court 3 (60 min)") and the site's names ("tennis court hire 0.5 hr c3").
+        if not re.search(r"\bcourt\b", have) or not re.search(r"\bcourt\b", want_name):
+            continue
+        def _court_num(s):
+            m = re.search(r"\bcourt\s*(\d+)\b", s)
+            if m:
+                return m.group(1)
+            m = re.search(r"\bc(\d+)\b", s)  # trailing 'C3' / 'c3' in site booking names
+            if m:
+                return m.group(1)
+            return None
+        if _court_num(have) is not None and _court_num(have) == _court_num(want_name):
             return b
     return None
