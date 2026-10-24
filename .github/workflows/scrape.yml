@@ -33,7 +33,7 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Scrape racquet and group exercise sessions
+      - name: Scrape tennis socials, courts, and group exercise sessions
         env:
           NG_MEMBER_NUMBER: ${{ secrets.NGMEMBERNUMBER }}
           NG_PASSWORD: ${{ secrets.NGPASSWORD }}

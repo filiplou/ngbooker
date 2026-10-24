@@ -1,0 +1,37 @@
+# Progress: Court Bookings & Tennis Socials Enhancement
+
+## Status / Overview
+- [x] 1. Environment & Setup
+  - [x] Analyze codebase architecture (scripts, data branch, GitHub Pages dashboard)
+  - [x] Diagnose Windows tzdata dependency and implement fallback in `ngclient.py`
+  - [x] Add `tzdata` to `requirements.txt`
+- [x] 2. Investigation of Court Bookings vs Tennis Programs
+  - [x] Inspect existing `index.html`, `scripts/ngclient.py`, `scripts/book.py`, `scripts/scrape.py`
+  - [x] Analyze live Club Lounge frontend controllers (`racquetsBookings.js`, `racquetsBookings.html`, `ClubLoungeApp.es5.js`, `TheClubLoungeJS.js`)
+  - [x] Confirm endpoints:
+    - `GetAvailableFacilitiesForSite` (retrieves facilities, court types, and duration activityIDs)
+    - `GetSlotAvailabilityForActivity` (retrieves daily slot availability grid for a court activity)
+    - `MakeActivityBooking` (creates court booking with `FacilityType`, `ResourceProductID`, `startDateTime`, `activityID`, `memberID`, `siteID`)
+  - [x] Map UI and user requirements:
+    - 1: Rename "Racquets" to "Tennis Socials"
+    - 2: Add new button "Courts"
+- [x] 3. Dashboard (`index.html`) Enhancements
+  - [x] Update `KIND_LABEL` to `{ racquet: "Tennis Socials", courts: "Courts", groupex: "Group exercise" }`
+  - [x] Update slot/session display helper (`spacesText`) for courts ("Available" / "Unavailable")
+  - [x] Enhance booking matching (`nameMatches`) for court bookings
+- [x] 4. Backend (`scripts/`) Enhancements
+  - [x] Implement Sydney timezone fallback in `ngclient.py` for environments without tzdata
+  - [x] Add `"courts"` to `KINDS` in `ngclient.py`
+  - [x] Implement `facilities()`, `courts()`, `normalise_court_slot()`, and court handling in `programs()` in `ngclient.py`
+  - [x] Implement `MakeActivityBooking` in `NGClient.book()` for `kind == "courts"`
+  - [x] Update `NGClient.check()` for courts
+  - [x] Enhance `find_booking()` to match court bookings flexibly across site naming formats
+  - [x] Verify `scrape.py` and `book.py` handle `"courts"` seamlessly
+  - [x] Update `discover.py` to inspect court availability
+- [x] 5. Testing & Verification
+  - [x] Add unit tests for court slot normalization, booking flow, API payloads, and court matching in `tests/test_book.py`
+  - [x] Run complete test suite (all 21 unit tests passing)
+- [x] 6. Documentation
+  - [x] Update `Project.md` with Tennis Socials and Courts descriptions
+  - [x] Create and maintain `progress.md`
+

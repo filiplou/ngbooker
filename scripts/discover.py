@@ -48,6 +48,18 @@ def main():
         if raw:
             show("AvailableClassesForDate raw (first 2)", raw)
             break
+    for d in reversed(open_dates):  # walk-back for Courts
+        try:
+            courts = c.programs(d, kind="courts")
+            print(f"\nday {d['dateAsISOString'][:10]}: {len(courts)} courts")
+            if courts:
+                show("Courts raw (first 2)", [p["raw"] for p in courts[:2]])
+                for p in courts[:5]:
+                    print(f"  parsed: {p['date']} {p['time']} weekday={p['weekday']} {p['className']!r}")
+                break
+        except Exception as e:
+            print(f"Courts check error: {e}")
+            break
     for m in c.members:
         print(f"bookings for {m['key']}: {len(c.my_bookings(m['key']))}")
     show("GetMemberBookings item1 (first 2)", c.my_bookings())
