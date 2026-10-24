@@ -129,6 +129,20 @@ class Tests(unittest.TestCase):
         self.assertIsNotNone(ngclient.find_booking(b, "Social Doubles C1-2", "2026-10-20", "19:30"))
         self.assertIsNone(ngclient.find_booking(b, "Social Doubles C1", "2026-10-20", "19:30"))
 
+    def test_court_slot_ids_include_duration(self):
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        slot = {
+            "productName": "1",
+            "displayTime": "09:30",
+            "dateTime": "2026-10-31T09:30:00",
+            "resourceProductID": "RES999",
+            "status": "Available",
+        }
+        short = normalise_court_slot(slot, facility, {"activityID": "ACT30", "duration": 30}, self.day)
+        long = normalise_court_slot(slot, facility, {"activityID": "ACT60", "duration": 60}, self.day)
+        self.assertNotEqual(short["id"], long["id"])
+        self.assertNotEqual(short["className"], long["className"])
+
     def test_status_comes_from_my_bookings_not_the_stale_waiting_list_label(self):
         # Sold-out label on the session, but the site actually confirmed a real booking under a longer name.
         raw = {"className": "Social Tennis", "activityID": "A1", "dateTimeAsISOString": self.dt.strftime("%Y-%m-%d %H:%M:%S"),
@@ -186,10 +200,10 @@ class Tests(unittest.TestCase):
         }
         prog = normalise_court_slot(slot, facility, duration, self.day)
         self.assertEqual(prog["kind"], "courts")
-        self.assertEqual(prog["className"], "SYNTH Court 1")
+        self.assertEqual(prog["className"], "SYNTH Court 1 (60 min)")
         self.assertEqual(prog["time"], "09:30")
         self.assertEqual(prog["activityID"], "ACT123")
-        self.assertEqual(prog["id"], f"SYNTH Court 1|{prog['weekday']}|09:30")
+        self.assertEqual(prog["id"], f"SYNTH Court 1 (60 min)|{prog['weekday']}|09:30")
         self.assertEqual(prog["raw"]["resourceProductID"], "RES999")
         self.assertEqual(prog["raw"]["facilityType"], "TENNIS_SYNTHETIC")
         self.assertEqual(prog["raw"]["status"], "Available")
@@ -259,6 +273,12 @@ class Tests(unittest.TestCase):
         self.assertIsNone(ngclient.find_booking(b1, "SYNTH Court 1", "2026-10-31", "10:30"))
         # Different date does not match
         self.assertIsNone(ngclient.find_booking(b1, "SYNTH Court 1", "2026-11-07", "09:30"))
+        # Duration suffix in className still matches (new naming: "Synth Court 1 (60 min)")
+        self.assertIsNotNone(ngclient.find_booking(b1, "SYNTH Court 1 (60 min)", "2026-10-31", "09:30"))
+        # Site's real booking format: "Tennis Court Hire 0.5 Hr C3" should match "Synth Court 3 (30 min)"
+        b2 = [{"className": "Tennis Court Hire 0.5 Hr C3", "displayDate": "Sunday 25 October", "displayTime": "1:30 PM"}]
+        self.assertIsNotNone(ngclient.find_booking(b2, "Synth Court 3 (30 min)", "2026-10-25", "13:30"))
+        self.assertIsNone(ngclient.find_booking(b2, "Synth Court 2 (30 min)", "2026-10-25", "13:30"))
 
     def test_client_courts_flow(self):
         c = ngclient.NGClient("testuser", "testpw")
@@ -273,11 +293,21 @@ class Tests(unittest.TestCase):
                         {
                             "facilityName": "SYNTH COURTS",
                             "facilityType": "TENNIS_SYNTHETIC",
-                            "durations": [{"durationName": "60 mins", "activityID": "ACT10", "duration": 60}],
-                        }
+                            "durations": [
+                                {"durationName": "30 mins", "activityID": "ACT05", "duration": 30},
+                                {"durationName": "60 mins", "activityID": "ACT10", "duration": 60},
+                            ],
+                        },
+                        {
+                            "facilityName": "SQUASH COURTS",
+                            "facilityType": "SQUASH",
+                            "durations": [{"durationName": "60 mins", "activityID": "SQUASH10", "duration": 60}],
+                        },
                     ]
                 }
             if path == "/GetSlotAvailabilityForActivity":
+                if kw["json"]["activityID"] == "SQUASH10":
+                    self.fail("Squash availability must not be requested as tennis court availability")
                 return [
                     [
                         {"productName": "1", "displayTime": "09:30", "dateTime": "2026-10-31T09:30:00",
@@ -291,13 +321,35 @@ class Tests(unittest.TestCase):
         c._call = fake_call
         d = {"dateAsISOString": "2026-10-31T00:00:00"}
         courts = c.programs(d, kind="courts", who="Filip")
-        self.assertEqual(len(courts), 2)
-        self.assertEqual(courts[0]["className"], "SYNTH Court 1")
+        self.assertEqual(len(courts), 4)
+        self.assertEqual(len({court["id"] for court in courts}), 4)
+        self.assertEqual(courts[0]["className"], "SYNTH Court 1 (30 min)")
         self.assertEqual(courts[0]["kind"], "courts")
         self.assertEqual(courts[0]["time"], "09:30")
         self.assertEqual(courts[0]["raw"]["status"], "Available")
-        self.assertEqual(courts[1]["className"], "SYNTH Court 2")
+        self.assertEqual(courts[1]["className"], "SYNTH Court 2 (30 min)")
         self.assertEqual(courts[1]["raw"]["status"], "NotAvailable")
+        self.assertEqual(courts[2]["className"], "SYNTH Court 1 (60 min)")
+        self.assertTrue(c.check(courts[0], d, "Filip")["isAvailable"])
+        self.assertFalse(c.check(courts[1], d, "Filip")["isAvailable"])
+
+    def test_unavailable_court_is_not_booked(self):
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        duration = {"durationName": "60 mins", "activityID": "ACT123", "duration": 60}
+        slot = {
+            "productName": "2",
+            "displayTime": "09:30",
+            "dateTime": self.dt.isoformat(),
+            "resourceProductID": "RES102",
+            "status": "NotAvailable",
+        }
+        prog = normalise_court_slot(slot, facility, duration, self.day)
+        client = mock.Mock()
+        client.check.return_value = {"isAvailable": False}
+        result, message = book.try_book(client, {}, prog, "Filip")
+        self.assertEqual(result, "failed")
+        self.assertIn("unavailable", message)
+        client.book.assert_not_called()
 
 
 if __name__ == "__main__":

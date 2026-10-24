@@ -34,4 +34,9 @@
 - [x] 6. Documentation
   - [x] Update `Project.md` with Tennis Socials and Courts descriptions
   - [x] Create and maintain `progress.md`
-
+- [x] 7. Follow-up fixes
+  - [x] Exclude squash facilities from the Courts list
+  - [x] Include duration in court selection names and IDs, and verify multiple durations
+  - [x] Match court bookings without confusing court identifiers with social-session identifiers
+  - [x] Prevent booking a court that is unavailable when the booking workflow rechecks it
+  - [x] Verify the complete suite (23 tests passing)
