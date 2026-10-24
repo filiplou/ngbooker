@@ -3,7 +3,7 @@
 Automatically books (or joins the waiting list for) your chosen weekly sessions at
 The Club Lounge (Next Gen Clubs, Ryde, Sydney), the moment new days are released at **08:01 Sydney time** (configurable in Settings).
 
-Supports both **Racquets** and **Group exercise** bookings, for up to 5 members.
+Supports **Tennis Socials**, **Courts**, and **Group exercise** bookings, for up to 5 members.
 
 ```
 main branch  : code (scripts/, workflows, index.html = dashboard on GitHub Pages)
@@ -22,7 +22,7 @@ is needed. Selections are stored by *class name + weekday + time*, so a choice r
 
 ## Dashboard tabs
 
-**Sessions** — pick which weekly sessions to auto-book, per member and per kind (Racquets / Group exercise).
+**Sessions** — pick which weekly sessions to auto-book, per member and per kind (Tennis Socials / Courts / Group exercise).
 Tick a session to add it; untick to remove. Press **Save selection** to persist.
 
 **Automatic bookings** — shows:
@@ -35,7 +35,7 @@ Tick a session to add it; untick to remove. Press **Save selection** to persist.
 
 ## Members and booking kinds
 
-Each member on the account gets their own button (by first name). A selection is stored as `kind|member|session`, so each person's weekly choices and booking history are fully separate. Older selections (created before this feature) are treated as Racquets for the first member.
+Each member on the account gets their own button (by first name). A selection is stored as `kind|member|session`, so each person's weekly choices and booking history are fully separate. Older selections (created before this feature) are treated as Tennis Socials for the first member.
 
 ## Why two branches and an environment
 
@@ -84,7 +84,7 @@ the *schedule* and never the booking code (which runs with your club login):
    ```
    Do not share its output. It shows whether the time format, `isWaitingList` and My Bookings fields
    match what the scripts expect.
-9. Run **Actions -> Refresh session list** once. All 5 members and both session kinds should appear.
+9. Run **Actions -> Refresh session list** once. All 5 members and all session kinds should appear.
 
 ## First-time dashboard setup (vault) — do this once, on a computer
 

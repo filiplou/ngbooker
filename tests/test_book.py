@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import book  # noqa: E402
 import ngclient  # noqa: E402
-from ngclient import SYD, NGError, first_name_keys, normalise_program, normalise_selection, sanitize  # noqa: E402
+from ngclient import SYD, NGError, first_name_keys, normalise_court_slot, normalise_program, normalise_selection, sanitize  # noqa: E402
 
 
 def make_prog(dt, name="Social Tennis"):
@@ -173,6 +173,131 @@ class Tests(unittest.TestCase):
 
     def test_naive_time_treated_as_sydney(self):
         self.assertEqual(ngclient.parse_local("2026-01-05T18:30:00").tzinfo, SYD)
+
+    def test_normalise_court_slot(self):
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        duration = {"durationName": "60 mins", "activityID": "ACT123", "duration": 60}
+        slot = {
+            "productName": "1",
+            "displayTime": "09:30",
+            "dateTime": "2026-10-31T09:30:00",
+            "resourceProductID": "RES999",
+            "status": "Available",
+        }
+        prog = normalise_court_slot(slot, facility, duration, self.day)
+        self.assertEqual(prog["kind"], "courts")
+        self.assertEqual(prog["className"], "SYNTH Court 1")
+        self.assertEqual(prog["time"], "09:30")
+        self.assertEqual(prog["activityID"], "ACT123")
+        self.assertEqual(prog["id"], f"SYNTH Court 1|{prog['weekday']}|09:30")
+        self.assertEqual(prog["raw"]["resourceProductID"], "RES999")
+        self.assertEqual(prog["raw"]["facilityType"], "TENNIS_SYNTHETIC")
+        self.assertEqual(prog["raw"]["status"], "Available")
+        self.assertEqual(prog["raw"]["spacesAvailable"], 1)
+
+    def test_selection_and_booking_for_courts(self):
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        duration = {"durationName": "60 mins", "activityID": "ACT123", "duration": 60}
+        slot = {
+            "productName": "2",
+            "displayTime": "09:30",
+            "dateTime": self.dt.isoformat(),
+            "resourceProductID": "RES102",
+            "status": "Available",
+        }
+        court_prog = normalise_court_slot(slot, facility, duration, self.day)
+        sel = [normalise_selection({"id": court_prog["id"], "kind": "courts", "who": "Filip",
+                                    "className": court_prog["className"], "time": "18:30",
+                                    "weekday": self.dt.weekday()}, "Filip")]
+        c, log = FakeClient(self.day, [self.prog, court_prog]), []
+        with mock.patch.object(book, "date_of", lambda d: self.day):
+            book.attempt_pass(c, sel, log, "now")
+        self.assertEqual(c.booked, [court_prog["id"]])
+        self.assertEqual(c.booked_for, ["Filip"])
+        self.assertEqual(c.asked, [("courts", "Filip")])
+        self.assertEqual((log[0]["who"], log[0]["kind"], log[0]["result"]), ("Filip", "courts", "booked"))
+
+    def test_court_booking_payload_calls_make_activity_booking(self):
+        c = ngclient.NGClient("testuser", "testpw")
+        c.members = [{"key": "Filip", "memberID": "M123", "siteID": "RY", "isGold": False}]
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        duration = {"durationName": "60 mins", "activityID": "ACT123", "duration": 60}
+        slot = {
+            "productName": "2",
+            "dateTime": "2026-10-31T09:30:00",
+            "resourceProductID": "RES102",
+            "status": "Available",
+        }
+        prog = normalise_court_slot(slot, facility, duration, self.day)
+        captured = {}
+
+        def fake_call(method, path, **kw):
+            captured["method"] = method
+            captured["path"] = path
+            captured["json"] = kw.get("json")
+            return True
+
+        c._call = fake_call
+        res = c.book(prog, "Filip")
+        self.assertTrue(res)
+        self.assertEqual(captured["method"], "POST")
+        self.assertEqual(captured["path"], "/MakeActivityBooking")
+        self.assertEqual(captured["json"]["FacilityType"], "TENNIS_SYNTHETIC")
+        self.assertEqual(captured["json"]["ResourceProductID"], "RES102")
+        self.assertEqual(captured["json"]["activityID"], "ACT123")
+        self.assertEqual(captured["json"]["memberID"], "M123")
+        self.assertEqual(captured["json"]["siteID"], "RY")
+
+    def test_find_booking_court_variations(self):
+        b1 = [{"className": "Synthetic Court 1", "displayDate": "Saturday 31 October", "displayTime": "9:30 AM"}]
+        # Different prefixes for Court 1 at 09:30 match
+        self.assertIsNotNone(ngclient.find_booking(b1, "SYNTH Court 1", "2026-10-31", "09:30"))
+        self.assertIsNotNone(ngclient.find_booking(b1, "Court 1", "2026-10-31", "09:30"))
+        # Different court number does not match
+        self.assertIsNone(ngclient.find_booking(b1, "SYNTH Court 2", "2026-10-31", "09:30"))
+        # Different time does not match
+        self.assertIsNone(ngclient.find_booking(b1, "SYNTH Court 1", "2026-10-31", "10:30"))
+        # Different date does not match
+        self.assertIsNone(ngclient.find_booking(b1, "SYNTH Court 1", "2026-11-07", "09:30"))
+
+    def test_client_courts_flow(self):
+        c = ngclient.NGClient("testuser", "testpw")
+        c.members = [{"key": "Filip", "memberID": "M123", "siteID": "RY", "isGold": False, "isAceMembership": True}]
+        c.member_id = "M123"
+        c.site_id = "RY"
+
+        def fake_call(method, path, **kw):
+            if "GetAvailableFacilitiesForSite" in path:
+                return {
+                    "facilities": [
+                        {
+                            "facilityName": "SYNTH COURTS",
+                            "facilityType": "TENNIS_SYNTHETIC",
+                            "durations": [{"durationName": "60 mins", "activityID": "ACT10", "duration": 60}],
+                        }
+                    ]
+                }
+            if path == "/GetSlotAvailabilityForActivity":
+                return [
+                    [
+                        {"productName": "1", "displayTime": "09:30", "dateTime": "2026-10-31T09:30:00",
+                         "resourceProductID": "R1", "status": "Available"},
+                        {"productName": "2", "displayTime": "09:30", "dateTime": "2026-10-31T09:30:00",
+                         "resourceProductID": "R2", "status": "NotAvailable"},
+                    ]
+                ]
+            return None
+
+        c._call = fake_call
+        d = {"dateAsISOString": "2026-10-31T00:00:00"}
+        courts = c.programs(d, kind="courts", who="Filip")
+        self.assertEqual(len(courts), 2)
+        self.assertEqual(courts[0]["className"], "SYNTH Court 1")
+        self.assertEqual(courts[0]["kind"], "courts")
+        self.assertEqual(courts[0]["time"], "09:30")
+        self.assertEqual(courts[0]["raw"]["status"], "Available")
+        self.assertEqual(courts[1]["className"], "SYNTH Court 2")
+        self.assertEqual(courts[1]["raw"]["status"], "NotAvailable")
 
 
 if __name__ == "__main__":

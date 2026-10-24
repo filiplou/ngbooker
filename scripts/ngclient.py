@@ -4,18 +4,49 @@ import os
 import re
 import time
 from datetime import datetime
-from zoneinfo import ZoneInfo
+try:
+    from zoneinfo import ZoneInfo
+    SYD = ZoneInfo("Australia/Sydney")
+except Exception:
+    from datetime import tzinfo, timedelta
+
+    class _SydneyTz(tzinfo):
+        def utcoffset(self, dt):
+            if dt is None:
+                return timedelta(hours=10)
+            year = dt.year
+            oct1 = datetime(year, 10, 1)
+            oct_first_sun = 1 + (6 - oct1.weekday()) % 7
+            dst_start = datetime(year, 10, oct_first_sun, 2, 0)
+            apr1 = datetime(year, 4, 1)
+            apr_first_sun = 1 + (6 - apr1.weekday()) % 7
+            dst_end = datetime(year, 4, apr_first_sun, 3, 0)
+            d = dt.replace(tzinfo=None)
+            if d >= dst_start or d < dst_end:
+                return timedelta(hours=11)
+            return timedelta(hours=10)
+
+        def dst(self, dt):
+            return timedelta(hours=1) if self.utcoffset(dt) == timedelta(hours=11) else timedelta(0)
+
+        def tzname(self, dt):
+            return "AEDT" if self.utcoffset(dt) == timedelta(hours=11) else "AEST"
+
+    SYD = _SydneyTz()
 
 import requests
 from requests.exceptions import ReadTimeout, ConnectionError as RequestsConnectionError
 
-SYD = ZoneInfo("Australia/Sydney")
 BASE = os.environ.get("NG_BASE_URL", "https://members.ngclubs.com.au").rstrip("/")
 API = BASE + "/api/ClubLounge"
 SENSITIVE = re.compile(r"member|email|phone|mobile|token|password", re.I)
 
 # Session types the club site offers, and the endpoint that lists them for a day.
-KINDS = {"racquet": "/AvailableTennisProgramsforDate", "groupex": "/AvailableClassesForDate"}
+KINDS = {
+    "racquet": "/AvailableTennisProgramsforDate",
+    "courts": "/GetSlotAvailabilityForActivity",
+    "groupex": "/AvailableClassesForDate",
+}
 DEFAULT_KIND = "racquet"
 
 
@@ -29,6 +60,19 @@ def parse_local(value):
     if dt.tzinfo is None:
         return dt.replace(tzinfo=SYD)
     return dt.astimezone(SYD)
+
+
+def _display_hhmm(s):
+    """'7:30 PM' or '05:30' or '5:30' -> '05:30' (None if it cannot be read)."""
+    s = str(s or "").strip()
+    m = re.match(r"\s*(\d{1,2}):(\d{2})\s*([AaPp])", s)
+    if m:
+        h = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "p" else 0)
+        return f"{h:02d}:{m.group(2)}"
+    m2 = re.match(r"\s*(\d{1,2}):(\d{2})\s*$", s)
+    if m2:
+        return f"{int(m2.group(1)):02d}:{m2.group(2)}"
+    return None
 
 
 def sanitize(obj):
@@ -84,6 +128,62 @@ def normalise_program(p, kind=DEFAULT_KIND):
         "weekday": dt.weekday(),
         "dt": dt,
         "raw": p,
+    }
+
+
+def normalise_court_slot(slot, facility, duration, day_date=None, kind="courts"):
+    """Convert a court slot from GetSlotAvailabilityForActivity into a normalised program dict."""
+    product_name = str(slot.get("productName", "")).strip()
+    facility_name = str(facility.get("facilityName", "")).strip()
+    if product_name.lower().startswith("court"):
+        court_label = product_name
+    else:
+        court_label = f"Court {product_name}" if product_name else "Court"
+
+    if facility_name.upper().endswith(" COURTS"):
+        base_facility = facility_name[:-7].strip()
+    elif facility_name.upper().endswith(" COURT"):
+        base_facility = facility_name[:-6].strip()
+    else:
+        base_facility = facility_name
+
+    class_name = f"{base_facility} {court_label}".strip() if base_facility else court_label
+
+    dt_str = slot.get("dateTime") or slot.get("dateTimeAsISOString")
+    if dt_str:
+        dt = parse_local(dt_str)
+        time_str = dt.strftime("%H:%M")
+    else:
+        time_str = _display_hhmm(slot.get("displayTime")) or "00:00"
+        hh, mm = map(int, time_str.split(":"))
+        if day_date is None:
+            day_date = datetime.now(SYD).date()
+        dt = datetime(day_date.year, day_date.month, day_date.day, hh, mm, tzinfo=SYD)
+
+    raw = dict(slot)
+    raw.update({
+        "facilityName": facility.get("facilityName"),
+        "facilityType": facility.get("facilityType", "TENNIS_SYNTHETIC"),
+        "duration": duration.get("duration", 60),
+        "durationName": duration.get("durationName", "60 mins"),
+        "activityID": duration.get("activityID"),
+        "className": class_name,
+        "dateTimeAsISOString": dt.isoformat(),
+        "dateTime": slot.get("dateTime") or dt.strftime("%Y-%m-%dT%H:%M:%S"),
+        "status": slot.get("status", "Available"),
+        "spacesAvailable": 1 if slot.get("status") == "Available" else 0,
+        "bookButtonDisplayString": "Book" if slot.get("status") == "Available" else "Unavailable",
+    })
+    return {
+        "id": make_id(class_name, dt.weekday(), time_str),
+        "kind": kind,
+        "className": class_name,
+        "activityID": duration.get("activityID"),
+        "date": dt.date().isoformat(),
+        "time": time_str,
+        "weekday": dt.weekday(),
+        "dt": dt,
+        "raw": raw,
     }
 
 
@@ -163,7 +263,13 @@ class NGClient:
         raw = graph["members"]
         keys = first_name_keys([m.get("firstNames") for m in raw])
         self.members = [
-            {"key": k, "memberID": m["memberID"], "siteID": m["sites"][0]["siteID"], "isGold": bool(m.get("isGoldMembership"))}
+            {
+                "key": k,
+                "memberID": m["memberID"],
+                "siteID": m["sites"][0]["siteID"],
+                "isGold": bool(m.get("isGoldMembership")),
+                "isAceMembership": bool(m.get("isAceMembership", True)),
+            }
             for k, m in zip(keys, raw)
         ]
         # The first member drives the date list and the "gold" rules, as before.
@@ -191,12 +297,60 @@ class NGClient:
             return bool(d.get("goldAvailableAfterHour"))
         return bool(d.get("goldOnly") or d.get("availableAfterHour"))
 
+    def facilities(self, who=None):
+        m = self.member(who)
+        if not hasattr(self, "_facilities_cache"):
+            self._facilities_cache = {}
+        site_id = m["siteID"]
+        if site_id not in self._facilities_cache:
+            is_ace = m.get("isAceMembership", True)
+            res = self._call("GET", f"/GetAvailableFacilitiesForSite?siteID={site_id}&isAceMembership={str(is_ace).lower()}")
+            self._facilities_cache[site_id] = (res or {}).get("facilities") or []
+        return self._facilities_cache[site_id]
+
+    def courts(self, d, who=None):
+        m = self.member(who)
+        facs = self.facilities(who)
+        day_date = date_of(d)
+        all_courts = []
+        for fac in facs:
+            durs = fac.get("durations") or []
+            if not durs:
+                continue
+            duration = durs[0]
+            activity_id = duration.get("activityID")
+            if not activity_id:
+                continue
+            data = {
+                "memberID": m["memberID"],
+                "activityID": activity_id,
+                "onDate": d["dateAsISOString"],
+                "siteID": m["siteID"],
+            }
+            slots_data = self._call("POST", "/GetSlotAvailabilityForActivity", json=data)
+            raw_slots = []
+            if isinstance(slots_data, list):
+                for item in slots_data:
+                    if isinstance(item, list):
+                        raw_slots.extend(item)
+                    elif isinstance(item, dict):
+                        raw_slots.append(item)
+            for slot in raw_slots:
+                all_courts.append(normalise_court_slot(slot, fac, duration, day_date, kind="courts"))
+        return all_courts
+
     def programs(self, d, kind=DEFAULT_KIND, who=None):
+        if kind == "courts":
+            return self.courts(d, who=who)
         m = self.member(who)
         data = {"dateAsISOString": d["dateAsISOString"], "siteID": m["siteID"], "memberID": m["memberID"]}
         return [normalise_program(p, kind) for p in (self._call("POST", KINDS[kind], json=data) or [])]
 
     def check(self, program, d, who=None):
+        if program.get("kind") == "courts":
+            raw = program.get("raw") or {}
+            is_avail = raw.get("status") == "Available" or raw.get("spacesAvailable", 0) > 0
+            return {"isWaitingList": False, "isAvailable": is_avail}
         m = self.member(who)
         raw = program.get("raw") or {}
         data = {
@@ -217,7 +371,17 @@ class NGClient:
 
     def book(self, program, who=None):
         m = self.member(who)
-        raw = program["raw"]
+        raw = program.get("raw") or {}
+        if program.get("kind") == "courts":
+            data = {
+                "FacilityType": raw.get("facilityType", "TENNIS_SYNTHETIC"),
+                "ResourceProductID": raw.get("resourceProductID"),
+                "startDateTime": raw.get("dateTime") or raw.get("startDateTime") or raw.get("dateTimeAsISOString"),
+                "activityID": raw.get("activityID") or program.get("activityID"),
+                "memberID": m["memberID"],
+                "siteID": m["siteID"],
+            }
+            return self._call("POST", "/MakeActivityBooking", json=data)
         data = {
             "dateTimeAsISOString": raw["dateTimeAsISOString"],
             "activityID": raw["activityID"],
@@ -243,15 +407,6 @@ def client_from_env():
     return c
 
 
-def _display_hhmm(s):
-    """'7:30 PM' -> '19:30' (None if it cannot be read)."""
-    m = re.match(r"\s*(\d{1,2}):(\d{2})\s*([AaPp])", str(s or ""))
-    if not m:
-        return None
-    h = int(m.group(1)) % 12 + (12 if m.group(3).lower() == "p" else 0)
-    return f"{h:02d}:{m.group(2)}"
-
-
 def find_booking(bookings, class_name, date_iso, time_str=None):
     """Match an existing booking. The site's My Bookings items have className, displayDate
     ('Tuesday 20 October') and displayTime ('7:30 PM'); no ISO date."""
@@ -263,13 +418,17 @@ def find_booking(bookings, class_name, date_iso, time_str=None):
             if class_name.lower() in text and date_iso in text:
                 return b
             continue
-        # The site appends the court/level to the booked name ('Social Doubles C1-2' -> 'Social Doubles C1-2 C1').
-        have, want_name = str(b.get("className", "")).strip().lower(), class_name.strip().lower()
-        if have != want_name and not have.startswith(want_name + " "):
-            continue
         if not want.search(str(b["displayDate"])):
             continue
         if time_str and _display_hhmm(b.get("displayTime")) not in (None, time_str):
             continue
-        return b
+        # The site appends the court/level to the booked name ('Social Doubles C1-2' -> 'Social Doubles C1-2 C1').
+        have, want_name = str(b.get("className", "")).strip().lower(), class_name.strip().lower()
+        if have == want_name or have.startswith(want_name + " ") or want_name.startswith(have + " "):
+            return b
+        # Check matching court numbers for court bookings (e.g. "SYNTH Court 1" and "Synthetic Court 1" or "Court 1")
+        mc_have = re.search(r"\bcourt\s*(\d+)\b", have)
+        mc_want = re.search(r"\bcourt\s*(\d+)\b", want_name)
+        if mc_have and mc_want and mc_have.group(1) == mc_want.group(1):
+            return b
     return None

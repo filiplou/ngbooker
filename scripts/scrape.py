@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read the Racquets programs and Group Exercise classes for every bookable day, for every member
+"""Read the Tennis Socials programs, Courts, and Group Exercise classes for every bookable day, for every member
 on the account, plus each member's current bookings, into data/*.json."""
 import json
 import sys

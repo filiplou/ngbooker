@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -152,7 +152,7 @@
   var DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   var LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var $ = function (id) { return document.getElementById(id); };
-  var KIND_LABEL = { racquet: "Racquets", groupex: "Group exercise" };
+  var KIND_LABEL = { racquet: "Tennis Socials", courts: "Courts", groupex: "Group exercise" };
   var state = { sessions: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], my: null,
                 members: [], kind: "racquet", who: null, allPaused: false, releaseTime: "08:01" };
 
@@ -372,6 +372,10 @@
     });
   }
   function spacesText(s) {
+    if (s.kind === "courts") {
+      var st = s.info && s.info.status;
+      return st === "Available" ? "Available" : (st || "Unavailable");
+    }
     var n = s.info && s.info.spacesAvailable;
     if (typeof n !== "number") return "";
     return n > 0 ? n + " spaces" : "full (waiting list)";
@@ -394,7 +398,12 @@
   }
   function nameMatches(have, want) {
     var a = String(have || "").trim().toLowerCase(), b = String(want || "").trim().toLowerCase();
-    return !!b && (a === b || a.indexOf(b + " ") === 0);
+    if (!b) return false;
+    if (a === b || a.indexOf(b + " ") === 0 || b.indexOf(a + " ") === 0) return true;
+    var ma = a.match(/\bcourt\s*(\d+)\b/);
+    var mb = b.match(/\bcourt\s*(\d+)\b/);
+    if (ma && mb && ma[1] === mb[1]) return true;
+    return false;
   }
   // A current booking counts as automatic only if the scheduled run logged that it made it.
   function isAutomatic(b) {
