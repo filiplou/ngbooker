@@ -229,10 +229,11 @@ class NGClient:
             msg = None
             try:
                 j = r.json()
-                msg = j.get("message") or j.get("Message")
+                if isinstance(j, dict):
+                    msg = j.get("message") or j.get("Message")
             except ValueError:
                 pass
-            raise NGError(msg or f"HTTP {r.status_code} on {path}")
+            raise NGError(f"HTTP {r.status_code} {method} {path}: {msg or 'request failed'}")
         return r.json() if r.content else None
 
     def login(self, retries=3, retry_delay=10):
@@ -342,7 +343,14 @@ class NGClient:
                     "onDate": d["dateAsISOString"],
                     "siteID": m["siteID"],
                 }
-                slots_data = self._call("POST", "/GetSlotAvailabilityForActivity", json=data)
+                try:
+                    slots_data = self._call("POST", "/GetSlotAvailabilityForActivity", json=data)
+                except NGError as e:
+                    duration_name = duration.get("durationName") or duration.get("duration")
+                    raise NGError(
+                        f"{e} (facility={fac.get('facilityName')!r}, duration={duration_name!r}, "
+                        f"activityID={activity_id!r}, date={d.get('dateAsISOString')!r})"
+                    ) from e
                 raw_slots = []
                 if isinstance(slots_data, list):
                     for item in slots_data:
