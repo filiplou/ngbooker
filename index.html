@@ -31,11 +31,10 @@
   table { width:100%; border-collapse:collapse; font-size:14px; }
   th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
   .court-grid-wrap { overflow-x:auto; margin:10px 0; border:1px solid var(--border); border-radius:8px; }
-  .court-grid { min-width:560px; }
+  .court-grid { min-width:320px; max-width:560px; }
   .court-grid th { background:#203344; color:#fff; text-align:center; white-space:nowrap; padding:10px 12px; }
-  .court-grid th:first-child { text-align:left; }
-  .court-grid td { height:44px; text-align:center; vertical-align:middle; background:#f3f4f6; }
-  .court-grid td.court-open { background:#d9f0aa; }
+  .court-grid th:first-child { text-align:left; width:40%; }
+  .court-grid td { height:44px; text-align:left; vertical-align:middle; background:#f3f4f6; }
   .court-grid td.court-time { background:#fff; text-align:left; white-space:nowrap; font-variant-numeric:tabular-nums; }
   .court-choice { display:inline-flex; align-items:center; gap:3px; margin:2px 5px; white-space:nowrap; font-size:12px; }
   .court-choice input { margin:0; }
@@ -360,7 +359,13 @@
     var key = selKey(kind, who, prog), before = state.selections.length;
     state.selections = state.selections.filter(function (x) { return selKey(selKind(x), selWho(x), selProg(x)) !== key; });
     if (state.selections.length === before) {
-      state.selections.push({ id: key, progId: prog, kind: kind, who: who, className: s.className, time: s.time, weekday: s.weekday, activityID: s.activityID });
+      var selection = { id: key, progId: prog, kind: kind, who: who, className: s.className, time: s.time, weekday: s.weekday, activityID: s.activityID };
+      if (kind === "courts" && s.info) {
+        selection.resourceProductID = s.info.resourceProductID;
+        selection.facilityType = s.info.facilityType;
+        selection.duration = Number(s.info.duration);
+      }
+      state.selections.push(selection);
     }
     state.dirty = true; render();
   }
@@ -374,19 +379,28 @@
   }
 
   // ---- Rendering -------------------------------------------------------
-  function fmtDate(iso) { var p = iso.split("-"); return DAYS[(new Date(+p[0], p[1] - 1, +p[2]).getDay() + 6) % 7] + " " + p[2] + "/" + p[1]; }
+  function weekdayIndex(iso) { return (new Date(iso + "T00:00:00Z").getUTCDay() + 6) % 7; }
+  function fmtDate(iso) { return DAYS[weekdayIndex(iso)]; }
+  function nextSevenDays() {
+    var parts = new Intl.DateTimeFormat("en-AU", {
+      timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(new Date());
+    var fields = {};
+    parts.forEach(function (part) { fields[part.type] = part.value; });
+    var start = Date.UTC(Number(fields.year), Number(fields.month) - 1, Number(fields.day) + 1);
+    var dates = [];
+    for (var i = 0; i < 7; i++) {
+      dates.push(new Date(start + i * 86400000).toISOString().slice(0, 10));
+    }
+    return dates;
+  }
   function visibleSessions() {
     return state.sessions.filter(function (s) {
       if ((s.kind || "racquet") !== state.kind) return false;
-      if (s.kind === "courts" && (!s.info || s.info.status !== "Available")) return false;
       return !s.who || !state.who || s.who.indexOf(state.who) >= 0;   // old data has no "who": shown for everybody
     });
   }
   function spacesText(s) {
-    if (s.kind === "courts") {
-      var st = s.info && s.info.status;
-      return st === "Available" ? "Available" : "Unavailable";
-    }
     var n = s.info && s.info.spacesAvailable;
     if (typeof n !== "number") return "";
     return n > 0 ? n + " spaces" : "full (waiting list)";
@@ -407,61 +421,36 @@
     var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ""));
     return m ? parseInt(m[2], 10) + "-" + parseInt(m[3], 10) : "";
   }
-  function renderCourtGrid(list, sessions) {
-    var facilities = Object.create(null);
-    sessions.forEach(function (s) {
-      var facility = s.info.facilityName || "Courts";
-      var court = String(s.info.productName || "Court");
-      if (!facilities[facility]) facilities[facility] = Object.create(null);
-      if (!facilities[facility][court]) facilities[facility][court] = Object.create(null);
-      if (!facilities[facility][court][s.time]) facilities[facility][court][s.time] = [];
-      facilities[facility][court][s.time].push(s);
-    });
-    Object.keys(facilities).sort().forEach(function (facility) {
-      var courts = Object.keys(facilities[facility]).sort(function (a, b) {
-        return a.localeCompare(b, undefined, { numeric: true });
-      });
-      var times = [];
-      sessions.forEach(function (s) {
-        if ((s.info.facilityName || "Courts") === facility && times.indexOf(s.time) < 0) times.push(s.time);
-      });
-      times.sort();
-      var table = el("table", { class: "court-grid" });
-      var headerCells = [el("th", { text: facility })];
-      courts.forEach(function (court) {
-        headerCells.push(el("th", { text: court }));
-      });
-      var header = el("tr", {}, headerCells);
-      var thead = el("thead", {}, [header]);
-      var tbody = el("tbody");
-      times.forEach(function (time) {
-        var row = el("tr", {}, [el("td", { class: "court-time", text: fmtCourtTime(time) })]);
-        courts.forEach(function (court) {
-          var slots = facilities[facility][court][time] || [];
-          var cell = el("td", { class: slots.length ? "court-open" : "" });
-          slots.sort(function (a, b) {
-            return Number(a.info.duration) - Number(b.info.duration);
-          }).forEach(function (s) {
-            var cb = el("input", { type: "checkbox", "aria-label": s.className + " " + time });
-            cb.checked = isSelected(s);
-            cb.onchange = function () { toggle(s); };
-            cell.appendChild(el("label", { class: "court-choice", title: s.className }, [
-              cb, document.createTextNode(String(s.info.duration || "?") + "m")
-            ]));
-          });
-          row.appendChild(cell);
-        });
-        tbody.appendChild(row);
-      });
-      table.appendChild(thead);
-      table.appendChild(tbody);
-      list.appendChild(el("div", { class: "court-grid-wrap" }, [table]));
-    });
-  }
-  function fmtCourtTime(time) {
-    var parts = String(time || "").split(":");
-    if (parts.length !== 2) return time;
-    return (parts[0].charAt(0) === "0" ? parts[0].slice(1) : parts[0]) + ":" + parts[1];
+  function renderCourtGrid(list) {
+    var table = el("table", { class: "court-grid" });
+    table.appendChild(el("thead", {}, [el("tr", {}, [
+      el("th", { text: "Time" }), el("th", { text: "Any court · 30 min" })
+    ])]));
+    var tbody = el("tbody");
+    for (var minutes = 5 * 60 + 30; minutes <= 20 * 60 + 30; minutes += 30) {
+      var hour = Math.floor(minutes / 60), minute = minutes % 60;
+      var time = (hour < 10 ? "0" : "") + hour + ":" + (minute < 10 ? "0" : "") + minute;
+      var hour12 = hour % 12 || 12;
+      var label = hour12 + ":" + (minute < 10 ? "0" : "") + minute + (hour < 12 ? " AM" : " PM");
+      var weekday = state.day ? weekdayIndex(state.day) : 0;
+      var prog = "Any court (30 min)|" + weekday + "|" + time;
+      var slot = {
+        id: prog, progId: prog, kind: "courts", className: "Any court (30 min)",
+        date: state.day, time: time, weekday: weekday, info: { duration: 30 }
+      };
+      var cb = el("input", { type: "checkbox", "aria-label": label + " any court, 30 minutes" });
+      cb.checked = isSelected(slot);
+      cb.onchange = function (selectedSlot) {
+        return function () { toggle(selectedSlot); };
+      }(slot);
+      var row = el("tr", {}, [
+        el("td", { class: "court-time", text: label }),
+        el("td", {}, [el("label", { class: "court-choice" }, [cb, document.createTextNode("Select")])])
+      ]);
+      tbody.appendChild(row);
+    }
+    table.appendChild(tbody);
+    list.appendChild(el("div", { class: "court-grid-wrap" }, [table]));
   }
   function nameMatches(have, want) {
     var a = String(have || "").trim().toLowerCase(), b = String(want || "").trim().toLowerCase();
@@ -509,15 +498,19 @@
     mem.hidden = state.members.length < 2;
 
     var shown = visibleSessions();
-    var dates = state.availableDates.slice();
+    var dates = state.kind === "courts" ? nextSevenDays() : state.availableDates.slice();
     if (!dates.length) shown.forEach(function (s) { if (dates.indexOf(s.date) < 0) dates.push(s.date); });
     dates.sort();
     if (!state.day || dates.indexOf(state.day) < 0) state.day = dates[0] || null;
     var lastRead = " Last read from the club site: " + (state.updated ? state.updated.replace("T", " ") : "unknown");
     $("sessionsInfo").textContent = shown.length
-      ? shown.length + " " + KIND_LABEL[state.kind].toLowerCase() + " sessions across " + dates.length + " bookable days." + lastRead
+      ? state.kind === "courts"
+        ? "Choose any 30-minute time from 5:30 AM to 8:30 PM on each day. Court numbers and live availability do not affect your choices; booking stops after the first confirmed court slot." + lastRead
+        : shown.length + " " + KIND_LABEL[state.kind].toLowerCase() + " sessions across " + dates.length + " bookable days." + lastRead
       : dates.length
-        ? "No " + KIND_LABEL[state.kind].toLowerCase() + " available for " + (state.who || "any member") + " on these " + dates.length + " bookable days." + lastRead
+        ? state.kind === "courts"
+          ? "No court slot options for " + (state.who || "any member") + " on these " + dates.length + " bookable days." + lastRead
+          : "No " + KIND_LABEL[state.kind].toLowerCase() + " available for " + (state.who || "any member") + " on these " + dates.length + " bookable days." + lastRead
         : "No " + KIND_LABEL[state.kind].toLowerCase() + " sessions" + (state.who ? " for " + state.who : "") + " yet - press 'Refresh from club site' and reload in about a minute.";
 
     var days = $("days"); days.textContent = "";
@@ -530,7 +523,7 @@
     var list = $("sessionList"); list.textContent = "";
     var daySessions = shown.filter(function (s) { return s.date === state.day; });
     if (state.kind === "courts") {
-      renderCourtGrid(list, daySessions);
+      renderCourtGrid(list);
     } else {
       daySessions.forEach(function (s) {
         var cb = el("input", { type: "checkbox" }); cb.checked = isSelected(s); cb.onchange = function () { toggle(s); };

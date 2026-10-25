@@ -18,23 +18,27 @@ scrape.yml (daily / on demand) --> sessions.json + members.json + my-bookings.js
 ```
 
 The refresh workflow has a 10-minute timeout and only scrapes future bookable dates (not today or past dates).
-Since available sessions are shared across members, each session kind is fetched once per date using the first
-member; those sessions are then associated with every member.
-Current bookings are still fetched separately for each member. Court availability is returned as a grid per
-duration, so its log distinguishes slot-duration records from unique court/time slots. If an individual lookup
-fails, the warning includes the request context and the scraper continues, so that lookup may be missing from
-the refreshed data.
+Since tennis socials and group exercise sessions are shared across members, each kind is fetched once per date
+using the first member; those sessions are then associated with every member. Current bookings are still
+fetched separately for each member. Courts are not scraped: the court schedule is static and the booking run
+looks up courts only when attempting the saved time preferences. If an individual lookup fails, the warning
+includes the request context and the scraper continues, so that lookup may be missing from refreshed data.
 
 The scripts call the same web API as the club website (`/token`, `/api/ClubLounge/...`), so no browser
 is needed. Selections are stored by *class name + weekday + time*, so a choice repeats every week.
 
 ## Dashboard tabs
 
-**Sessions** — pick which weekly sessions to auto-book, per member and per kind (Tennis Socials / Courts / Group exercise).
-Date tabs include every bookable date reported by the club, including dates with no available sessions. Court availability
-is shown as a time-by-court grid with selectable duration options; unavailable court slots are hidden.
-Court availability is checked again immediately before booking. Squash courts are excluded.
+**Sessions** — pick which weekly Tennis Socials and Group exercise sessions to auto-book, per member.
+Date tabs include every bookable date reported by the club, including dates with no available sessions.
 Tick a session to add it; untick to remove. Press **Save selection** to persist.
+
+**Courts** — show a static weekly schedule with one selectable 30-minute slot every half hour from
+5:30 AM through 8:30 PM for each bookable day. Court numbers and live availability do not affect these
+choices. Save the selected weekday/time preferences. During the daily run, find any non-squash court
+matching each selected time and attempt to book that court for 30 minutes. Continue through matching
+courts and selected times until one court booking is confirmed, then skip the remaining court attempts
+for that run. This is a maximum of one confirmed court booking per run.
 
 **Automatic bookings** — shows:
 - *Selected sessions* grouped by member. Each entry has a ⏸ pause button (skips that session for the next booking run) and a **Book now (test)** button.
@@ -95,7 +99,8 @@ the *schedule* and never the booking code (which runs with your club login):
    ```
    Do not share its output. It shows whether the time format, `isWaitingList` and My Bookings fields
    match what the scripts expect.
-9. Run **Actions -> Refresh session list** once. All 5 members and all session kinds should appear.
+9. Run **Actions -> Refresh session list** once. All 5 members and tennis socials/group exercise sessions
+   should appear. Court time preferences are static and do not depend on this refresh.
 
 ## First-time dashboard setup (vault) — do this once, on a computer
 
@@ -146,7 +151,10 @@ time, and it never rebooks a session already done, so these are harmless.
 
 ## Behaviour
 
-- Open slot → booked. Full → the site's own booking call puts you on the waiting list.
+- Court choices are fixed half-hour times from 05:30 through 20:30. The booking run searches the matching
+  time across courts without using availability to filter the user's saved choices.
+- A confirmed court booking ends court attempts for that run; a waitlist result is not a confirmed booking.
+- Only one confirmed 30-minute court booking is made per daily run, regardless of how many times are selected.
 - Only the day exactly 7 days ahead is ever attempted, so a Tuesday selection books next Tuesday and never today or other visible days (this avoids "concurrent reservation" errors).
 - Result of every attempt is shown in the *Booking history* section (`booked`, `waitlisted`, `already`, `failed`, `not-published`). The last 300 entries are stored in `bookings-log.json`; the dashboard shows the newest 10.
 - The booked/waitlisted result is taken from the site's My Bookings (`isOnWaitList`) after booking. The site may append the court to the name (for example `Social Doubles C1-2` becomes `Social Doubles C1-2 C1`), so a booking matches if its name equals the selection name or starts with it followed by a space.

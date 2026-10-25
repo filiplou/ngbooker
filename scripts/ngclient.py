@@ -453,7 +453,7 @@ def find_booking(bookings, class_name, date_iso, time_str=None):
     extracted from either format: 'court 3', 'Court 3', or 'C3' at the end of the string.
     """
     day = datetime.fromisoformat(date_iso)
-    want = re.compile(r"\b%d\s+%s\b" % (day.day, day.strftime("%B")), re.I)
+    want = re.compile(r"\b0?%d\s+%s\b" % (day.day, day.strftime("%B")), re.I)
     for b in bookings or []:
         if "displayDate" not in b:  # unknown shape: fall back to a text search
             text = json.dumps(b, default=str).lower()
