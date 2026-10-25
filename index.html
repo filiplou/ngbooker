@@ -30,6 +30,15 @@
   .booked,.already { color:var(--ok); } .waitlisted { color:var(--warn); } .failed,.not-published { color:var(--bad); }
   table { width:100%; border-collapse:collapse; font-size:14px; }
   th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .court-grid-wrap { overflow-x:auto; margin:10px 0; border:1px solid var(--border); border-radius:8px; }
+  .court-grid { min-width:560px; }
+  .court-grid th { background:#203344; color:#fff; text-align:center; white-space:nowrap; padding:10px 12px; }
+  .court-grid th:first-child { text-align:left; }
+  .court-grid td { height:44px; text-align:center; vertical-align:middle; background:#f3f4f6; }
+  .court-grid td.court-open { background:#d9f0aa; }
+  .court-grid td.court-time { background:#fff; text-align:left; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .court-choice { display:inline-flex; align-items:center; gap:3px; margin:2px 5px; white-space:nowrap; font-size:12px; }
+  .court-choice input { margin:0; }
   input[type=text],input[type=password] { font:inherit; padding:6px 8px; border:1px solid var(--border); border-radius:6px; width:100%; }
   #log { background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:8px; font:12px/1.5 ui-monospace,Consolas,monospace; max-height:140px; overflow:auto; white-space:pre-wrap; margin-top:16px; }
   .row { display:flex; gap:10px; flex-wrap:wrap; } .row > div { flex:1; min-width:180px; }
@@ -368,6 +377,7 @@
   function visibleSessions() {
     return state.sessions.filter(function (s) {
       if ((s.kind || "racquet") !== state.kind) return false;
+      if (s.kind === "courts" && (!s.info || s.info.status !== "Available")) return false;
       return !s.who || !state.who || s.who.indexOf(state.who) >= 0;   // old data has no "who": shown for everybody
     });
   }
@@ -395,6 +405,60 @@
   function isoDayMonth(s) {
     var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ""));
     return m ? parseInt(m[2], 10) + "-" + parseInt(m[3], 10) : "";
+  }
+  function renderCourtGrid(list, sessions) {
+    var facilities = Object.create(null);
+    sessions.forEach(function (s) {
+      var facility = s.info.facilityName || "Courts";
+      var court = String(s.info.productName || "Court");
+      if (!facilities[facility]) facilities[facility] = Object.create(null);
+      if (!facilities[facility][court]) facilities[facility][court] = Object.create(null);
+      if (!facilities[facility][court][s.time]) facilities[facility][court][s.time] = [];
+      facilities[facility][court][s.time].push(s);
+    });
+    Object.keys(facilities).sort().forEach(function (facility) {
+      var courts = Object.keys(facilities[facility]).sort(function (a, b) {
+        return a.localeCompare(b, undefined, { numeric: true });
+      });
+      var times = [];
+      sessions.forEach(function (s) {
+        if ((s.info.facilityName || "Courts") === facility && times.indexOf(s.time) < 0) times.push(s.time);
+      });
+      times.sort();
+      var table = el("table", { class: "court-grid" });
+      var header = el("tr", {}, [el("th", { text: facility }), courts.map(function (court) {
+        return el("th", { text: court });
+      })]);
+      var thead = el("thead", {}, [header]);
+      var tbody = el("tbody");
+      times.forEach(function (time) {
+        var row = el("tr", {}, [el("td", { class: "court-time", text: fmtCourtTime(time) })]);
+        courts.forEach(function (court) {
+          var slots = facilities[facility][court][time] || [];
+          var cell = el("td", { class: slots.length ? "court-open" : "" });
+          slots.sort(function (a, b) {
+            return Number(a.info.duration) - Number(b.info.duration);
+          }).forEach(function (s) {
+            var cb = el("input", { type: "checkbox", "aria-label": s.className + " " + time });
+            cb.checked = isSelected(s);
+            cb.onchange = function () { toggle(s); };
+            cell.appendChild(el("label", { class: "court-choice", title: s.className }, [
+              cb, document.createTextNode(String(s.info.duration || "?") + "m")
+            ]));
+          });
+          row.appendChild(cell);
+        });
+        tbody.appendChild(row);
+      });
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      list.appendChild(el("div", { class: "court-grid-wrap" }, [table]));
+    });
+  }
+  function fmtCourtTime(time) {
+    var parts = String(time || "").split(":");
+    if (parts.length !== 2) return time;
+    return (parts[0].charAt(0) === "0" ? parts[0].slice(1) : parts[0]) + ":" + parts[1];
   }
   function nameMatches(have, want) {
     var a = String(have || "").trim().toLowerCase(), b = String(want || "").trim().toLowerCase();
@@ -456,13 +520,17 @@
     });
 
     var list = $("sessionList"); list.textContent = "";
-    shown.filter(function (s) { return s.date === state.day; }).forEach(function (s) {
-      var cb = el("input", { type: "checkbox" }); cb.checked = isSelected(s); cb.onchange = function () { toggle(s); };
-      cb.disabled = s.kind === "courts" && s.info && s.info.status !== "Available" && !cb.checked;
-      var info = el("span", {}, [el("b", { text: s.time + "  " + s.className }), el("br"), el("span", { class: "muted", text: spacesText(s) })]);
-      list.appendChild(el("div", { class: "card" + (cb.checked ? " sel" : "") }, [el("label", {}, [cb, info]),
-        el("span", { class: "muted", text: cb.checked ? "Auto-book every " + LONG[s.weekday] + " for " + state.who : "" })]));
-    });
+    var daySessions = shown.filter(function (s) { return s.date === state.day; });
+    if (state.kind === "courts") {
+      renderCourtGrid(list, daySessions);
+    } else {
+      daySessions.forEach(function (s) {
+        var cb = el("input", { type: "checkbox" }); cb.checked = isSelected(s); cb.onchange = function () { toggle(s); };
+        var info = el("span", {}, [el("b", { text: s.time + "  " + s.className }), el("br"), el("span", { class: "muted", text: spacesText(s) })]);
+        list.appendChild(el("div", { class: "card" + (cb.checked ? " sel" : "") }, [el("label", {}, [cb, info]),
+          el("span", { class: "muted", text: cb.checked ? "Auto-book every " + LONG[s.weekday] + " for " + state.who : "" })]));
+      });
+    }
     if (state.day && !list.children.length) list.appendChild(el("p", { class: "muted", text: "No sessions on this day." }));
 
     $("saveBtn").disabled = !state.dirty;

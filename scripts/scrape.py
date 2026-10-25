@@ -60,6 +60,7 @@ def main():
                 continue
             elapsed = time.monotonic() - started
             if kind == "courts":
+                progs = [program for program in progs if program["raw"].get("status") == "Available"]
                 result_summary = court_count_summary([public_view(p) for p in progs])
             else:
                 result_summary = f"{len(progs)} {kind} sessions"

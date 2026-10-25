@@ -50,12 +50,12 @@ class ScrapeTests(unittest.TestCase):
             })],
             "courts": [
                 normalise_court_slot(
-                    {"productName": "1", "dateTime": date_time.isoformat(), "status": "Available"},
+                    {"productName": "1", "dateTime": date_time.isoformat(), "status": status},
                     {"facilityName": "SYNTH COURTS"},
                     {"duration": duration, "activityID": f"COURT{duration}"},
                     day,
                 )
-                for duration in (30, 60)
+                for duration, status in ((30, "Available"), (60, "Available"), (90, "NotAvailable"))
             ],
             "groupex": [normalise_program({
                 "className": "Yoga",
@@ -79,6 +79,9 @@ class ScrapeTests(unittest.TestCase):
         self.assertEqual(client.booking_calls, ["Filip", "Theresa", "Annika"])
         self.assertEqual(members, ["Filip", "Theresa", "Annika"])
         self.assertEqual(len(sessions), 4)
+        court_sessions = [session for session in sessions if session["kind"] == "courts"]
+        self.assertEqual(len(court_sessions), 2)
+        self.assertTrue(all(session["info"]["status"] == "Available" for session in court_sessions))
         self.assertTrue(all(session["who"] == members for session in sessions))
         self.assertEqual(len(bookings), 3)
 
