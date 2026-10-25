@@ -43,6 +43,18 @@ class FakeClient:
 
 
 class ScrapeTests(unittest.TestCase):
+    def test_future_bookable_dates_excludes_today_and_past(self):
+        today = datetime(2026, 10, 25, tzinfo=SYD).date()
+        days = [
+            {"dateAsISOString": (today + timedelta(days=offset)).isoformat() + "T00:00:00"}
+            for offset in (-1, 0, 1, 2)
+        ]
+
+        self.assertEqual(
+            scrape.future_bookable_dates(days, today),
+            days[2:],
+        )
+
     def test_fetches_sessions_once_and_assigns_them_to_every_member(self):
         day = datetime(2026, 10, 30, tzinfo=SYD).date()
         date_time = datetime(2026, 10, 30, 9, 30, tzinfo=SYD)

@@ -17,8 +17,9 @@ book.yml --runs from main, environment "club"-->
 scrape.yml (daily / on demand) --> sessions.json + members.json + my-bookings.json on the data branch
 ```
 
-The refresh workflow has a 10-minute timeout. Since available sessions are shared across members, each session
-kind is fetched once per date using the first member; those sessions are then associated with every member.
+The refresh workflow has a 10-minute timeout and only scrapes future bookable dates (not today or past dates).
+Since available sessions are shared across members, each session kind is fetched once per date using the first
+member; those sessions are then associated with every member.
 Current bookings are still fetched separately for each member. Court availability is returned as a grid per
 duration, so its log distinguishes slot-duration records from unique court/time slots. If an individual lookup
 fails, the warning includes the request context and the scraper continues, so that lookup may be missing from

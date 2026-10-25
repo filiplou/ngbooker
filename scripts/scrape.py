@@ -15,6 +15,11 @@ def write(name, obj):
     (DATA / name).write_text(json.dumps(obj, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def future_bookable_dates(days, today=None):
+    today = today or datetime.now(SYD).date()
+    return [day for day in days if date_of(day) > today]
+
+
 def court_count_summary(programs):
     unique_slots = {
         (
@@ -37,7 +42,8 @@ def court_count_summary(programs):
 
 def main():
     client = client_from_env()
-    days = [d for d in client.dates() if not client.is_blocked(d)]
+    today = datetime.now(SYD).date()
+    days = future_bookable_dates([d for d in client.dates() if not client.is_blocked(d)], today)
     available_dates = sorted({date_of(day).isoformat() for day in days})
     merged = {}  # (kind, date, time, className, activityID) -> public entry with the list of members who see it
     members = client.members
