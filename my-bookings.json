@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-25T11:09:54+11:00",
+  "updated": "2026-10-25T16:51:57+11:00",
   "bookings": [
     {
       "bookingID": 21084036,
@@ -22,17 +22,6 @@
       "isOnWaitList": true,
       "firstName": null,
       "who": "Filip"
-    },
-    {
-      "bookingID": 21125950,
-      "displayDate": "Monday 26 October",
-      "displayTime": "9:10 AM",
-      "className": "Sculpt Booty Band",
-      "duration": "45 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Theresa"
     },
     {
       "bookingID": 20957003,
@@ -75,6 +64,17 @@
       "duration": "45 mins",
       "canCancelBooking": true,
       "isOnWaitList": true,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 21087684,
+      "displayDate": "Friday 30 October",
+      "displayTime": "8:30 AM",
+      "className": "Spooky Spin",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
       "firstName": null,
       "who": "Theresa"
     }
