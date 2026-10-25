@@ -106,5 +106,17 @@
     "slot": "19:30",
     "result": "waitlisted",
     "message": ""
+  },
+  {
+    "time": "2026-10-25T17:13:43+11:00",
+    "mode": "now",
+    "selectionId": "courts|Filip|Any court (30 min)|4|13:00",
+    "kind": "courts",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-10-30",
+    "slot": "13:00",
+    "result": "booked",
+    "message": ""
   }
 ]
