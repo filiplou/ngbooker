@@ -426,9 +426,11 @@
       });
       times.sort();
       var table = el("table", { class: "court-grid" });
-      var header = el("tr", {}, [el("th", { text: facility }), courts.map(function (court) {
-        return el("th", { text: court });
-      })]);
+      var headerCells = [el("th", { text: facility })];
+      courts.forEach(function (court) {
+        headerCells.push(el("th", { text: court }));
+      });
+      var header = el("tr", {}, headerCells);
       var thead = el("thead", {}, [header]);
       var tbody = el("tbody");
       times.forEach(function (time) {
