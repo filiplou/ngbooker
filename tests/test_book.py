@@ -87,6 +87,71 @@ class Tests(unittest.TestCase):
         self.assertEqual(pending, {(self.sel[0]["id"], self.day.isoformat())})
         self.assertEqual(log, [])
 
+    def test_manual_target_date_uses_nearest_future_matching_weekday(self):
+        friday = normalise_selection(
+            {"id": "court|13:00", "className": "Any court (30 min)", "time": "13:00", "weekday": 4},
+            "Filip",
+        )
+        today = datetime(2026, 10, 25).date()
+        dates = [
+            {"dateAsISOString": "2026-10-25T00:00:00"},
+            {"dateAsISOString": "2026-10-30T00:00:00"},
+            {"dateAsISOString": "2026-11-01T00:00:00"},
+            {"dateAsISOString": "2026-11-06T00:00:00"},
+        ]
+        client = FakeClient(today, [])
+        client.dates = lambda: dates
+
+        self.assertEqual(book.manual_target_date(client, friday, today), datetime(2026, 10, 30).date())
+
+    def test_manual_test_attempts_the_next_bookable_matching_weekday(self):
+        friday_date = datetime(2026, 10, 30).date()
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        prog = normalise_court_slot(
+            {
+                "productName": "1",
+                "dateTime": "2026-10-30T13:00:00",
+                "resourceProductID": "RES999",
+                "status": "Available",
+            },
+            facility,
+            {"activityID": "ACT30", "duration": 30},
+            friday_date,
+        )
+        friday = normalise_selection(
+            {
+                "id": prog["id"],
+                "kind": "courts",
+                "className": "Any court (30 min)",
+                "time": "13:00",
+                "weekday": 4,
+                "duration": 30,
+            },
+            "Filip",
+        )
+        client = FakeClient(friday_date, [prog])
+        client.dates = lambda: [
+            {"dateAsISOString": "2026-10-25T00:00:00"},
+            {"dateAsISOString": "2026-10-30T00:00:00"},
+            {"dateAsISOString": "2026-11-01T00:00:00"},
+        ]
+        client.member_keys = lambda: ["Filip"]
+        saved_log = []
+        data = {"selections.json": {"selections": [friday]}, "bookings-log.json": []}
+
+        with (
+            mock.patch("sys.argv", ["book.py", "--mode", "now", "--selection-id", friday["id"]]),
+            mock.patch.object(book, "now", return_value=datetime(2026, 10, 25, 16, 0, tzinfo=SYD)),
+            mock.patch.object(book, "load", side_effect=lambda name, default: data[name]),
+            mock.patch.object(book, "client_from_env", return_value=client),
+            mock.patch.object(book, "save", side_effect=lambda name, value: saved_log.extend(value)),
+        ):
+            book.main()
+
+        self.assertEqual(client.booked, [prog["id"]])
+        self.assertEqual(saved_log[0]["result"], "booked")
+        self.assertEqual(saved_log[0]["date"], "2026-10-30")
+
     def test_only_books_the_day_seven_ahead(self):
         # Same weekday, but today (and 14 days out) must never be attempted.
         for offset in (0, 14):

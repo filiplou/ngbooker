@@ -44,7 +44,7 @@ for that run. This is a maximum of one confirmed court booking per run.
 - *Selected sessions* grouped by member. Each entry has a ⏸ pause button (skips that session for the next booking run) and a **Book now (test)** button.
 - *⏸ Pause all automatic bookings* toggle — suspends all bookings in one tap.
 - *Current bookings on the club site* grouped by member, each with a Booked / Waitlisted tag, refreshed by the scrape workflow.
-- *Booking history* (bottom of the page) — last 10 booking attempts with result (`booked`, `waitlisted`, `already`, `failed`, `not-published`).
+- *Booking history* (bottom of the page) — last 10 booking attempts with result (`booked`, `waitlisted`, `already`, `failed`, `not-published`, `skipped`).
 
 **⚙ Settings** — configure the release time (default `08:01`), change the passphrase or GitHub token, lock this device.
 
@@ -156,9 +156,9 @@ time, and it never rebooks a session already done, so these are harmless.
 - A confirmed court booking ends court attempts for that run; a waitlist result is not a confirmed booking.
 - Only one confirmed 30-minute court booking is made per daily run, regardless of how many times are selected.
 - Only the day exactly 7 days ahead is ever attempted, so a Tuesday selection books next Tuesday and never today or other visible days (this avoids "concurrent reservation" errors).
-- Result of every attempt is shown in the *Booking history* section (`booked`, `waitlisted`, `already`, `failed`, `not-published`). The last 300 entries are stored in `bookings-log.json`; the dashboard shows the newest 10.
+- Result of every attempt is shown in the *Booking history* section (`booked`, `waitlisted`, `already`, `failed`, `not-published`, `skipped`). A single-selection test that targets a different weekday is recorded as `skipped`, with the selection weekday and checked date. The last 300 entries are stored in `bookings-log.json`; the dashboard shows the newest 10.
 - The booked/waitlisted result is taken from the site's My Bookings (`isOnWaitList`) after booking. The site may append the court to the name (for example `Social Doubles C1-2` becomes `Social Doubles C1-2 C1`), so a booking matches if its name equals the selection name or starts with it followed by a space.
-- **Book now (test)** triggers `book.yml` in `now` mode for that one selection. Like the scheduled run, it only targets the day 7 days ahead, so it does nothing if that date's weekday doesn't match the selection.
+- **Book now (test)** triggers `book.yml` in `now` mode for that one selection. It books the nearest future date of the selected weekday that the club currently makes available, regardless of what weekday the test is run. Scheduled bookings continue to target the day exactly 7 days ahead.
 - Silver members only see 7 days ahead; gold-only days are skipped automatically.
 
 ## Security notes

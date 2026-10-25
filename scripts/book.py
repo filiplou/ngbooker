@@ -9,6 +9,7 @@ next Tuesday and never today or other days already visible.
 --mode now       : single pass over that same day (used by the dashboard "Book now" button).
 """
 import argparse
+import calendar
 import json
 import sys
 import time
@@ -57,6 +58,15 @@ def record(log, mode, sel, prog, result, message=""):
     }
     log.append(entry)
     say(f"[{entry['who']}] {sel['className']} {entry['date']} {sel['time']}: {result} {message}".strip())
+
+
+def manual_target_date(client, selection, after_date):
+    matching_dates = []
+    for d in client.dates():
+        day = date_of(d)
+        if day > after_date and day.weekday() == selection["weekday"] and not client.is_blocked(d):
+            matching_dates.append(day)
+    return min(matching_dates, default=None)
 
 
 def try_book(client, d, prog, who=None):
@@ -256,7 +266,7 @@ def main():
         hh, mm = map(int, args.release.split(":"))
         release_at = datetime(biz_day.year, biz_day.month, biz_day.day, hh, mm, tzinfo=SYD)
 
-    if not any(s["weekday"] == only_date.weekday() for s in raw_sels):
+    if args.mode == "scheduled" and not any(s["weekday"] == only_date.weekday() for s in raw_sels):
         say(f"No selected session falls on {only_date:%A} {only_date} - nothing to do.")
         return 0
 
@@ -274,10 +284,20 @@ def main():
     if not sels:
         say("No matching selections - nothing to do.")
         return 0
-
     try:
         if args.mode == "now":
-            attempt_pass(client, sels, log, "now", only_date=only_date)
+            today = now().date()
+            for s in sels:
+                manual_date = manual_target_date(client, s, today)
+                if manual_date is None:
+                    selected_day = calendar.day_name[s["weekday"]]
+                    record(
+                        log, "now", s, {"date": ""},
+                        "not-published",
+                        f"no future {selected_day} is currently available to book",
+                    )
+                    continue
+                attempt_pass(client, [s], log, "now", only_date=manual_date)
         else:
             wait = (release_at - now()).total_seconds()
             if wait > 0:
