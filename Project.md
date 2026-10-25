@@ -30,7 +30,8 @@ is needed. Selections are stored by *class name + weekday + time*, so a choice r
 ## Dashboard tabs
 
 **Sessions** — pick which weekly sessions to auto-book, per member and per kind (Tennis Socials / Courts / Group exercise).
-Court availability is shown as a time-by-court grid with selectable duration options; unavailable court slots are hidden.
+Date tabs include every bookable date reported by the club, including dates with no available sessions. Court availability
+is shown as a time-by-court grid with selectable duration options; unavailable court slots are hidden.
 Court availability is checked again immediately before booking. Squash courts are excluded.
 Tick a session to add it; untick to remove. Press **Save selection** to persist.
 

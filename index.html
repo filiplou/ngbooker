@@ -152,7 +152,7 @@
   </section>
 
   </div>
-  <footer>Made with IBM Bob</footer>
+  <footer>Made with IBM Bob v1.0</footer>
 </main>
 
 <script>
@@ -162,7 +162,7 @@
   var LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var $ = function (id) { return document.getElementById(id); };
   var KIND_LABEL = { racquet: "Tennis Socials", courts: "Courts", groupex: "Group exercise" };
-  var state = { sessions: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], my: null,
+  var state = { sessions: [], availableDates: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], my: null,
                 members: [], kind: "racquet", who: null, allPaused: false, releaseTime: "08:01" };
 
   var CODE_BRANCH = "main";           // workflows are always dispatched from here
@@ -333,6 +333,7 @@
     return Promise.all([readFile("sessions.json"), readFile("selections.json"), readFile("bookings-log.json"), readFile("my-bookings.json"), members])
       .then(function (r) {
         state.sessions = r[0].data.sessions || []; state.updated = r[0].data.updated || "";
+        state.availableDates = r[0].data.availableDates || [];
         state.selections = r[1].data.selections || []; state.selSha = r[1].sha;
         state.allPaused = r[1].data.allPaused || false;
         state.releaseTime = r[1].data.releaseTime || "08:01"; state.dirty = false;
@@ -508,11 +509,16 @@
     mem.hidden = state.members.length < 2;
 
     var shown = visibleSessions();
-    var dates = []; shown.forEach(function (s) { if (dates.indexOf(s.date) < 0) dates.push(s.date); });
+    var dates = state.availableDates.slice();
+    if (!dates.length) shown.forEach(function (s) { if (dates.indexOf(s.date) < 0) dates.push(s.date); });
+    dates.sort();
     if (!state.day || dates.indexOf(state.day) < 0) state.day = dates[0] || null;
+    var lastRead = " Last read from the club site: " + (state.updated ? state.updated.replace("T", " ") : "unknown");
     $("sessionsInfo").textContent = shown.length
-      ? shown.length + " " + KIND_LABEL[state.kind].toLowerCase() + " sessions across " + dates.length + " days. Last read from the club site: " + (state.updated ? state.updated.replace("T", " ") : "unknown")
-      : "No " + KIND_LABEL[state.kind].toLowerCase() + " sessions" + (state.who ? " for " + state.who : "") + " yet - press 'Refresh from club site' and reload in about a minute.";
+      ? shown.length + " " + KIND_LABEL[state.kind].toLowerCase() + " sessions across " + dates.length + " bookable days." + lastRead
+      : dates.length
+        ? "No " + KIND_LABEL[state.kind].toLowerCase() + " available for " + (state.who || "any member") + " on these " + dates.length + " bookable days." + lastRead
+        : "No " + KIND_LABEL[state.kind].toLowerCase() + " sessions" + (state.who ? " for " + state.who : "") + " yet - press 'Refresh from club site' and reload in about a minute.";
 
     var days = $("days"); days.textContent = "";
     dates.forEach(function (d) {
