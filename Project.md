@@ -17,8 +17,9 @@ book.yml --runs from main, environment "club"-->
 scrape.yml (daily / on demand) --> sessions.json + members.json + my-bookings.json on the data branch
 ```
 
-The refresh workflow has a 10-minute timeout. Since available sessions are shared across members, each session
-kind is fetched once per date using the first member; those sessions are then associated with every member.
+The refresh workflow has a 10-minute timeout and only scrapes future bookable dates (not today or past dates).
+Since available sessions are shared across members, each session kind is fetched once per date using the first
+member; those sessions are then associated with every member.
 Current bookings are still fetched separately for each member. Court availability is returned as a grid per
 duration, so its log distinguishes slot-duration records from unique court/time slots. If an individual lookup
 fails, the warning includes the request context and the scraper continues, so that lookup may be missing from
@@ -30,7 +31,8 @@ is needed. Selections are stored by *class name + weekday + time*, so a choice r
 ## Dashboard tabs
 
 **Sessions** — pick which weekly sessions to auto-book, per member and per kind (Tennis Socials / Courts / Group exercise).
-Court availability is shown as a time-by-court grid with selectable duration options; unavailable court slots are hidden.
+Date tabs include every bookable date reported by the club, including dates with no available sessions. Court availability
+is shown as a time-by-court grid with selectable duration options; unavailable court slots are hidden.
 Court availability is checked again immediately before booking. Squash courts are excluded.
 Tick a session to add it; untick to remove. Press **Save selection** to persist.
 

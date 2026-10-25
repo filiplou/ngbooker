@@ -6,13 +6,18 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ngclient import KINDS, NGError, SYD, client_from_env, public_view, sanitize
+from ngclient import KINDS, NGError, SYD, client_from_env, date_of, public_view, sanitize
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
 
 def write(name, obj):
     (DATA / name).write_text(json.dumps(obj, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def future_bookable_dates(days, today=None):
+    today = today or datetime.now(SYD).date()
+    return [day for day in days if date_of(day) > today]
 
 
 def court_count_summary(programs):
@@ -37,7 +42,9 @@ def court_count_summary(programs):
 
 def main():
     client = client_from_env()
-    days = [d for d in client.dates() if not client.is_blocked(d)]
+    today = datetime.now(SYD).date()
+    days = future_bookable_dates([d for d in client.dates() if not client.is_blocked(d)], today)
+    available_dates = sorted({date_of(day).isoformat() for day in days})
     merged = {}  # (kind, date, time, className, activityID) -> public entry with the list of members who see it
     members = client.members
     member_keys = [m["key"] for m in members]
@@ -72,7 +79,7 @@ def main():
     sessions = sorted(merged.values(), key=lambda s: (s["kind"], s["date"], s["time"], s["className"]))
     stamp = datetime.now(SYD).isoformat(timespec="seconds")
 
-    write("sessions.json", {"updated": stamp, "sessions": sessions})
+    write("sessions.json", {"updated": stamp, "availableDates": available_dates, "sessions": sessions})
     write("members.json", {"updated": stamp, "members": member_keys})
 
     bookings = []
