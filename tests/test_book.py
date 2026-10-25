@@ -211,7 +211,7 @@ class Tests(unittest.TestCase):
 
     def test_selection_and_booking_for_courts(self):
         facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
-        duration = {"durationName": "60 mins", "activityID": "ACT123", "duration": 60}
+        duration = {"durationName": "30 mins", "activityID": "ACT123", "duration": 30}
         slot = {
             "productName": "2",
             "displayTime": "09:30",
@@ -222,7 +222,9 @@ class Tests(unittest.TestCase):
         court_prog = normalise_court_slot(slot, facility, duration, self.day)
         sel = [normalise_selection({"id": court_prog["id"], "kind": "courts", "who": "Filip",
                                     "className": court_prog["className"], "time": "18:30",
-                                    "weekday": self.dt.weekday()}, "Filip")]
+                                    "weekday": self.dt.weekday(), "activityID": court_prog["activityID"],
+                                    "resourceProductID": "RES102", "facilityType": "TENNIS_SYNTHETIC",
+                                    "duration": 30}, "Filip")]
         c, log = FakeClient(self.day, [self.prog, court_prog]), []
         with mock.patch.object(book, "date_of", lambda d: self.day):
             book.attempt_pass(c, sel, log, "now")
@@ -230,6 +232,81 @@ class Tests(unittest.TestCase):
         self.assertEqual(c.booked_for, ["Filip"])
         self.assertEqual(c.asked, [("courts", "Filip")])
         self.assertEqual((log[0]["who"], log[0]["kind"], log[0]["result"]), ("Filip", "courts", "booked"))
+
+    def test_only_one_court_candidate_is_booked_after_confirmation(self):
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        duration = {"durationName": "30 mins", "activityID": "ACT30", "duration": 30}
+        selections = []
+        programs = []
+        for offset, court in enumerate(("1", "2", "3")):
+            dt = self.dt + timedelta(minutes=offset * 30)
+            prog = normalise_court_slot(
+                {"productName": court, "dateTime": dt.isoformat(), "resourceProductID": f"RES{court}",
+                 "status": "NotAvailable"},
+                facility,
+                duration,
+                self.day,
+            )
+            programs.append(prog)
+            selections.append(normalise_selection({
+                "id": prog["id"], "kind": "courts", "who": "Filip", "className": prog["className"],
+                "time": prog["time"], "weekday": prog["weekday"], "activityID": prog["activityID"],
+                "resourceProductID": f"RES{court}", "facilityType": "TENNIS_SYNTHETIC", "duration": 30,
+            }, "Filip"))
+        c, log = FakeClient(self.day, programs), []
+
+        with mock.patch.object(book, "date_of", lambda d: self.day):
+            book.attempt_pass(c, selections, log, "now")
+
+        self.assertEqual(len(c.booked), 1)
+        self.assertEqual([entry["result"] for entry in log], ["booked"])
+        self.assertEqual(c.asked, [("courts", "Filip")])
+
+    def test_any_court_selection_tries_each_court_at_the_selected_time(self):
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        duration = {"durationName": "30 mins", "activityID": "ACT30", "duration": 30}
+        programs = [
+            normalise_court_slot(
+                {"productName": court, "dateTime": self.dt.isoformat(), "resourceProductID": f"RES{court}",
+                 "status": status},
+                facility,
+                duration,
+                self.day,
+            )
+            for court, status in (("1", "NotAvailable"), ("2", "Available"))
+        ]
+        time_id = f"Any court (30 min)|{self.dt.weekday()}|{self.dt.strftime('%H:%M')}"
+        selection = normalise_selection({
+            "id": time_id, "kind": "courts", "who": "Filip", "className": "Any court (30 min)",
+            "time": self.dt.strftime("%H:%M"), "weekday": self.dt.weekday(), "duration": 30,
+        }, "Filip")
+        c, log = FakeClient(self.day, programs), []
+        c.my_bookings = lambda who=None: []
+        c.book = mock.Mock(side_effect=[NGError("slot unavailable"), True])
+
+        with mock.patch.object(book, "date_of", lambda d: self.day):
+            book.attempt_pass(c, [selection], log, "now")
+
+        self.assertEqual(c.asked, [("courts", "Filip")])
+        self.assertEqual([call.args[0]["raw"]["resourceProductID"] for call in c.book.call_args_list],
+                         ["RES1", "RES2"])
+        self.assertEqual([entry["result"] for entry in log], ["failed", "booked"])
+        self.assertTrue(all(entry["className"] == "Any court (30 min)" for entry in log))
+
+    def test_saved_court_candidate_over_30_minutes_is_not_booked(self):
+        selection = normalise_selection({
+            "id": "Court 1 (90 min)|1|18:30", "kind": "courts", "who": "Filip",
+            "className": "Court 1 (90 min)", "time": "18:30", "weekday": self.dt.weekday(),
+            "activityID": "ACT90", "resourceProductID": "RES1", "duration": 90,
+        }, "Filip")
+        c, log = FakeClient(self.day, []), []
+
+        with mock.patch.object(book, "date_of", lambda d: self.day):
+            book.attempt_pass(c, [selection], log, "now")
+
+        self.assertEqual(c.booked, [])
+        self.assertEqual(log[0]["result"], "failed")
+        self.assertIn("must be 30 minutes", log[0]["message"])
 
     def test_court_booking_payload_calls_make_activity_booking(self):
         c = ngclient.NGClient("testuser", "testpw")
@@ -363,7 +440,7 @@ class Tests(unittest.TestCase):
         ):
             c._call("GET", "/GetAvailableBookingDates")
 
-    def test_unavailable_court_is_not_booked(self):
+    def test_court_booking_attempt_does_not_recheck_live_availability(self):
         facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
         duration = {"durationName": "60 mins", "activityID": "ACT123", "duration": 60}
         slot = {
@@ -375,11 +452,13 @@ class Tests(unittest.TestCase):
         }
         prog = normalise_court_slot(slot, facility, duration, self.day)
         client = mock.Mock()
-        client.check.return_value = {"isAvailable": False}
+        client.book.return_value = True
+        client.my_bookings.return_value = []
         result, message = book.try_book(client, {}, prog, "Filip")
-        self.assertEqual(result, "failed")
-        self.assertIn("unavailable", message)
-        client.book.assert_not_called()
+        self.assertEqual(result, "booked")
+        self.assertEqual(message, "")
+        client.check.assert_not_called()
+        client.book.assert_called_once_with(prog, "Filip")
 
 
 if __name__ == "__main__":

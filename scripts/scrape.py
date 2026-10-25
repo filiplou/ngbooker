@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ngclient import KINDS, NGError, SYD, client_from_env, date_of, public_view, sanitize
+from ngclient import NGError, SYD, client_from_env, date_of, public_view, sanitize
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
@@ -20,26 +20,6 @@ def future_bookable_dates(days, today=None):
     return [day for day in days if date_of(day) > today]
 
 
-def court_count_summary(programs):
-    unique_slots = {
-        (
-            program["date"],
-            program["time"],
-            program["info"].get("facilityName"),
-            program["info"].get("productName"),
-        )
-        for program in programs
-    }
-    duration_counts = {}
-    for program in programs:
-        duration = program["info"].get("duration")
-        duration_counts[duration] = duration_counts.get(duration, 0) + 1
-    durations = ", ".join(
-        f"{duration} min: {count}" for duration, count in sorted(duration_counts.items(), key=lambda x: str(x[0]))
-    )
-    return f"{len(programs)} court slot-duration records, {len(unique_slots)} unique court/time slots ({durations})"
-
-
 def main():
     client = client_from_env()
     today = datetime.now(SYD).date()
@@ -49,7 +29,7 @@ def main():
     members = client.members
     member_keys = [m["key"] for m in members]
     data_member = members[0]
-    for kind in KINDS:
+    for kind in ("racquet", "groupex"):
         for d in days:
             date = d.get("dateAsISOString", "unknown")
             started = time.monotonic()
@@ -66,11 +46,7 @@ def main():
                 )
                 continue
             elapsed = time.monotonic() - started
-            if kind == "courts":
-                progs = [program for program in progs if program["raw"].get("status") == "Available"]
-                result_summary = court_count_summary([public_view(p) for p in progs])
-            else:
-                result_summary = f"{len(progs)} {kind} sessions"
+            result_summary = f"{len(progs)} {kind} sessions"
             print(f"Fetched {result_summary} on {date} in {elapsed:.1f}s", flush=True)
             for p in progs:
                 v = public_view(p)
@@ -89,7 +65,7 @@ def main():
         except NGError as e:
             print(f"WARNING: bookings for {m['key']} failed: {e}", file=sys.stderr, flush=True)
     write("my-bookings.json", {"updated": stamp, "bookings": bookings})
-    counts = {k: sum(1 for s in sessions if s["kind"] == k) for k in KINDS}
+    counts = {k: sum(1 for s in sessions if s["kind"] == k) for k in ("racquet", "groupex")}
     print(f"Saved {len(sessions)} sessions {counts} for {len(members)} members.")
 
 

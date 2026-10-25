@@ -61,17 +61,16 @@ def record(log, mode, sel, prog, result, message=""):
 
 def try_book(client, d, prog, who=None):
     """Return (result, message). The site's MakeBooking call books the slot or joins the waiting list."""
-    try:
-        chk = client.check(prog, d, who)
-    except NGError as e:
-        msg = str(e)
-        return ("already" if "already" in msg.lower() else "failed"), msg
     raw = prog.get("raw") or {}
     on_wait_list = (raw.get("spacesAvailable", 0) or 0) < 0 or "waiting list" in str(raw.get("bookButtonDisplayString", "")).lower()
-    if isinstance(chk, dict) and chk.get("isWaitingList"):
-        on_wait_list = True
-    if prog.get("kind") == "courts" and isinstance(chk, dict) and chk.get("isAvailable") is False:
-        return "failed", "court slot is unavailable"
+    if prog.get("kind") != "courts":
+        try:
+            chk = client.check(prog, d, who)
+        except NGError as e:
+            msg = str(e)
+            return ("already" if "already" in msg.lower() else "failed"), msg
+        if isinstance(chk, dict) and chk.get("isWaitingList"):
+            on_wait_list = True
     try:
         ok = client.book(prog, who)
     except NGError as e:
@@ -89,6 +88,39 @@ def try_book(client, d, prog, who=None):
     return ("waitlisted" if on_wait_list else "booked"), ""
 
 
+def saved_court_program(selection, day):
+    duration = selection.get("duration")
+    resource_id = selection.get("resourceProductID")
+    if not resource_id or selection.get("activityID") is None:
+        return None
+    if not isinstance(duration, (int, float)) or duration <= 0:
+        return None
+
+    hour, minute = map(int, selection["time"].split(":"))
+    dt = datetime(day.year, day.month, day.day, hour, minute, tzinfo=SYD)
+    start = dt.strftime("%Y-%m-%dT%H:%M:%S")
+    raw = {
+        "facilityType": selection.get("facilityType") or "TENNIS_SYNTHETIC",
+        "resourceProductID": resource_id,
+        "activityID": selection["activityID"],
+        "duration": duration,
+        "className": selection["className"],
+        "dateTime": start,
+        "dateTimeAsISOString": dt.isoformat(),
+    }
+    return {
+        "id": selection["progId"],
+        "kind": "courts",
+        "className": selection["className"],
+        "activityID": selection["activityID"],
+        "date": day.isoformat(),
+        "time": selection["time"],
+        "weekday": day.weekday(),
+        "dt": dt,
+        "raw": raw,
+    }
+
+
 def target_day(advance_days=7):
     return now().date() + timedelta(days=advance_days)
 
@@ -99,6 +131,12 @@ def attempt_pass(client, sels, log, mode, only_date=None):
     only_date = only_date or target_day()
     unpublished = set()
     bookings = {}  # per member, read lazily
+    court_booking_done = any(
+        entry.get("kind") == "courts"
+        and entry.get("date") == only_date.isoformat()
+        and entry.get("result") in {"booked", "already"}
+        for entry in log
+    )
     for d in client.dates():
         if client.is_blocked(d):
             continue
@@ -112,23 +150,68 @@ def attempt_pass(client, sels, log, mode, only_date=None):
         for s in wanted:
             date_iso = day.isoformat()
             if already_done(log, s["id"], date_iso):
+                if s["kind"] == "courts" and any(
+                    entry.get("selectionId") == s["id"]
+                    and entry.get("date") == date_iso
+                    and entry.get("result") in {"booked", "already"}
+                    for entry in log
+                ):
+                    court_booking_done = True
+                continue
+            if s["kind"] == "courts" and court_booking_done:
                 continue
             key = (s["kind"], s["who"])
-            if key not in progs:
-                progs[key] = client.programs(d, s["kind"], s["who"])
-            prog = next((p for p in progs[key] if p["id"] == s["progId"]), None)
-            if prog is None:
+            if s["kind"] == "courts":
+                if s.get("duration") not in (None, 30):
+                    record(log, mode, s, {"date": date_iso}, "failed", "court booking slots must be 30 minutes")
+                    continue
+                if s.get("duration") == 30:
+                    if key not in progs:
+                        progs[key] = client.programs(d, s["kind"], s["who"])
+                    candidates = [
+                        p for p in progs[key]
+                        if p["time"] == s["time"] and (p.get("raw") or {}).get("duration") == 30
+                    ]
+                    if not candidates:
+                        unpublished.add((s["id"], date_iso))
+                        continue
+                else:
+                    prog = saved_court_program(s, day)
+                    if prog and prog["raw"]["duration"] > 30:
+                        record(log, mode, s, prog, "failed", "court booking slots must be 30 minutes")
+                        continue
+                    if prog is None:
+                        if key not in progs:
+                            progs[key] = client.programs(d, s["kind"], s["who"])
+                        prog = next((p for p in progs[key] if p["id"] == s["progId"]), None)
+                    candidates = [prog] if prog else []
+            else:
+                if key not in progs:
+                    progs[key] = client.programs(d, s["kind"], s["who"])
+                prog = next((p for p in progs[key] if p["id"] == s["progId"]), None)
+                candidates = [prog] if prog else []
+            if not candidates:
                 unpublished.add((s["id"], date_iso))
                 continue
-            if prog["dt"] <= now():
-                continue
-            if s["who"] not in bookings:
-                bookings[s["who"]] = client.my_bookings(s["who"])
-            if find_booking(bookings[s["who"]], prog["className"], date_iso, prog["time"]):
-                record(log, mode, s, prog, "already", "found in My Bookings")
-                continue
-            result, msg = try_book(client, d, prog, s["who"])
-            record(log, mode, s, prog, result, msg)
+            for prog in candidates:
+                if s["kind"] == "courts" and (prog.get("raw") or {}).get("duration", 0) > 30:
+                    record(log, mode, s, prog, "failed", "court booking slots must be 30 minutes")
+                    continue
+                if prog["dt"] <= now():
+                    continue
+                if s["who"] not in bookings:
+                    bookings[s["who"]] = client.my_bookings(s["who"])
+                if find_booking(bookings[s["who"]], prog["className"], date_iso, prog["time"]):
+                    record(log, mode, s, prog, "already", "found in My Bookings")
+                    if s["kind"] == "courts":
+                        court_booking_done = True
+                        break
+                    continue
+                result, msg = try_book(client, d, prog, s["who"])
+                record(log, mode, s, prog, result, msg)
+                if s["kind"] == "courts" and result in {"booked", "already"}:
+                    court_booking_done = True
+                    break
     return unpublished
 
 
