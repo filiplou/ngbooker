@@ -130,5 +130,17 @@
     "slot": "09:10",
     "result": "failed",
     "message": "Request timed out: /MakeBooking"
+  },
+  {
+    "time": "2026-10-26T11:21:06+11:00",
+    "mode": "now",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band",
+    "date": "2026-11-02",
+    "slot": "09:10",
+    "result": "already",
+    "message": "found in My Bookings"
   }
 ]
