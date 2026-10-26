@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-26T00:21:24.511Z",
+  "updated": "2026-10-26T00:27:38.948Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -55,16 +55,6 @@
       "who": "Filip",
       "className": "Any court (30 min)",
       "time": "13:00",
-      "weekday": 4,
-      "duration": 30
-    },
-    {
-      "id": "courts|Filip|Any court (30 min)|4|12:30",
-      "progId": "Any court (30 min)|4|12:30",
-      "kind": "courts",
-      "who": "Filip",
-      "className": "Any court (30 min)",
-      "time": "12:30",
       "weekday": 4,
       "duration": 30
     },
