@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-26T00:27:41.985Z",
+  "updated": "2026-10-26T00:27:44.354Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -47,26 +47,6 @@
       "time": "08:30",
       "weekday": 1,
       "activityID": "RE1TU0830AUG22A"
-    },
-    {
-      "id": "courts|Filip|Any court (30 min)|4|13:30",
-      "progId": "Any court (30 min)|4|13:30",
-      "kind": "courts",
-      "who": "Filip",
-      "className": "Any court (30 min)",
-      "time": "13:30",
-      "weekday": 4,
-      "duration": 30
-    },
-    {
-      "id": "courts|Filip|Any court (30 min)|4|14:00",
-      "progId": "Any court (30 min)|4|14:00",
-      "kind": "courts",
-      "who": "Filip",
-      "className": "Any court (30 min)",
-      "time": "14:00",
-      "weekday": 4,
-      "duration": 30
     },
     {
       "id": "courts|Filip|Any court (30 min)|6|16:00",
