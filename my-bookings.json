@@ -1,6 +1,39 @@
 {
-  "updated": "2026-10-27T10:20:11+11:00",
+  "updated": "2026-10-27T10:56:58+11:00",
   "bookings": [
+    {
+      "bookingID": 21084036,
+      "displayDate": "Tuesday 27 October",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles C1-2 C1",
+      "duration": "60 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Filip"
+    },
+    {
+      "bookingID": 21084188,
+      "displayDate": "Thursday 29 October",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles B2 C1-2 C1",
+      "duration": "60 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Filip"
+    },
+    {
+      "bookingID": 21084037,
+      "displayDate": "Tuesday 3 November",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles C1-2 C1",
+      "duration": "60 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": true,
+      "firstName": null,
+      "who": "Filip"
+    },
     {
       "bookingID": 20957259,
       "displayDate": "Thursday 29 October",
