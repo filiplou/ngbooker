@@ -48,6 +48,7 @@ KINDS = {
     "groupex": "/AvailableClassesForDate",
 }
 DEFAULT_KIND = "racquet"
+READ_RETRIES = 2  # extra attempts for read-only calls (3 in total)
 
 
 class NGError(Exception):
@@ -223,18 +224,28 @@ class NGClient:
         self.is_gold = False
 
     # -- low level ---------------------------------------------------------
-    def _call(self, method, path, timeout=30, **kw):
-        started = time.monotonic()
-        try:
-            r = self.s.request(method, API + path, timeout=timeout, **kw)
-        except ReadTimeout:
-            elapsed = time.monotonic() - started
-            print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} timed out after {elapsed:.1f}s (limit {timeout}s)", flush=True)
-            raise NGError(f"Request timed out: {path}")
-        except RequestsConnectionError as e:
-            elapsed = time.monotonic() - started
-            print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} connection error after {elapsed:.1f}s: {e}", flush=True)
-            raise NGError(f"Connection error on {path}: {e}")
+    def _call(self, method, path, timeout=30, retries=0, retry_delay=2, **kw):
+        """retries = extra attempts on timeout/connection error. Only use for read-only calls:
+        a retried MakeBooking could double-book if the first request actually went through."""
+        for attempt in range(retries + 1):
+            started = time.monotonic()
+            try:
+                r = self.s.request(method, API + path, timeout=timeout, **kw)
+                break
+            except ReadTimeout:
+                elapsed = time.monotonic() - started
+                print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} timed out after {elapsed:.1f}s (limit {timeout}s)", flush=True)
+                if attempt < retries:
+                    time.sleep(retry_delay)
+                    continue
+                raise NGError(f"Request timed out: {path}")
+            except RequestsConnectionError as e:
+                elapsed = time.monotonic() - started
+                print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} connection error after {elapsed:.1f}s: {e}", flush=True)
+                if attempt < retries:
+                    time.sleep(retry_delay)
+                    continue
+                raise NGError(f"Connection error on {path}: {e}")
         elapsed = time.monotonic() - started
         if r.status_code >= 400:
             msg = None
@@ -312,7 +323,7 @@ class NGClient:
 
     # -- API ---------------------------------------------------------------
     def dates(self):
-        return self._call("GET", f"/GetAvailableBookingDates?siteID={self.site_id}")
+        return self._call("GET", f"/GetAvailableBookingDates?siteID={self.site_id}", retries=READ_RETRIES)
 
     def is_blocked(self, d):
         if self.is_gold:
@@ -389,7 +400,7 @@ class NGClient:
             return self.courts(d, who=who)
         m = self.member(who)
         data = {"dateAsISOString": d["dateAsISOString"], "siteID": m["siteID"], "memberID": m["memberID"]}
-        return [normalise_program(p, kind) for p in (self._call("POST", KINDS[kind], json=data) or [])]
+        return [normalise_program(p, kind) for p in (self._call("POST", KINDS[kind], retries=READ_RETRIES, json=data) or [])]
 
     def check(self, program, d, who=None):
         if program.get("kind") == "courts":
@@ -417,7 +428,7 @@ class NGClient:
             data["dateAsISOString"] = raw.get("dateTimeAsISOString") or d["dateAsISOString"]
             data["bookingsAvailableAfter"] = 8
             data["ResourceProductID"] = raw.get("resourceProductID")
-        return self._call("POST", "/CheckAvailability", json=data)
+        return self._call("POST", "/CheckAvailability", retries=READ_RETRIES, json=data)
 
     def book(self, program, who=None):
         m = self.member(who)
@@ -443,7 +454,7 @@ class NGClient:
         return self._call("POST", "/MakeBooking", json=data, timeout=60)
 
     def my_bookings(self, who=None):
-        data = self._call("GET", f"/GetMemberBookings/{self.member(who)['memberID']}")
+        data = self._call("GET", f"/GetMemberBookings/{self.member(who)['memberID']}", retries=READ_RETRIES)
         return (data or {}).get("item1") or []
 
 
