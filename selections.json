@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-25T05:53:42.621Z",
+  "updated": "2026-10-26T00:21:24.511Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -49,56 +49,6 @@
       "activityID": "RE1TU0830AUG22A"
     },
     {
-      "id": "courts|Filip|Any court (30 min)|6|10:00",
-      "progId": "Any court (30 min)|6|10:00",
-      "kind": "courts",
-      "who": "Filip",
-      "className": "Any court (30 min)",
-      "time": "10:00",
-      "weekday": 6,
-      "duration": 30
-    },
-    {
-      "id": "courts|Filip|Any court (30 min)|6|10:30",
-      "progId": "Any court (30 min)|6|10:30",
-      "kind": "courts",
-      "who": "Filip",
-      "className": "Any court (30 min)",
-      "time": "10:30",
-      "weekday": 6,
-      "duration": 30
-    },
-    {
-      "id": "courts|Filip|Any court (30 min)|6|11:00",
-      "progId": "Any court (30 min)|6|11:00",
-      "kind": "courts",
-      "who": "Filip",
-      "className": "Any court (30 min)",
-      "time": "11:00",
-      "weekday": 6,
-      "duration": 30
-    },
-    {
-      "id": "courts|Filip|Any court (30 min)|6|11:30",
-      "progId": "Any court (30 min)|6|11:30",
-      "kind": "courts",
-      "who": "Filip",
-      "className": "Any court (30 min)",
-      "time": "11:30",
-      "weekday": 6,
-      "duration": 30
-    },
-    {
-      "id": "courts|Filip|Any court (30 min)|6|12:00",
-      "progId": "Any court (30 min)|6|12:00",
-      "kind": "courts",
-      "who": "Filip",
-      "className": "Any court (30 min)",
-      "time": "12:00",
-      "weekday": 6,
-      "duration": 30
-    },
-    {
       "id": "courts|Filip|Any court (30 min)|4|13:00",
       "progId": "Any court (30 min)|4|13:00",
       "kind": "courts",
@@ -136,6 +86,46 @@
       "className": "Any court (30 min)",
       "time": "14:00",
       "weekday": 4,
+      "duration": 30
+    },
+    {
+      "id": "courts|Filip|Any court (30 min)|6|16:00",
+      "progId": "Any court (30 min)|6|16:00",
+      "kind": "courts",
+      "who": "Filip",
+      "className": "Any court (30 min)",
+      "time": "16:00",
+      "weekday": 6,
+      "duration": 30
+    },
+    {
+      "id": "courts|Filip|Any court (30 min)|6|16:30",
+      "progId": "Any court (30 min)|6|16:30",
+      "kind": "courts",
+      "who": "Filip",
+      "className": "Any court (30 min)",
+      "time": "16:30",
+      "weekday": 6,
+      "duration": 30
+    },
+    {
+      "id": "courts|Filip|Any court (30 min)|6|17:00",
+      "progId": "Any court (30 min)|6|17:00",
+      "kind": "courts",
+      "who": "Filip",
+      "className": "Any court (30 min)",
+      "time": "17:00",
+      "weekday": 6,
+      "duration": 30
+    },
+    {
+      "id": "courts|Filip|Any court (30 min)|6|17:30",
+      "progId": "Any court (30 min)|6|17:30",
+      "kind": "courts",
+      "who": "Filip",
+      "className": "Any court (30 min)",
+      "time": "17:30",
+      "weekday": 6,
       "duration": 30
     }
   ]
