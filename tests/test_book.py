@@ -625,5 +625,40 @@ class Tests(unittest.TestCase):
         client.book.assert_called_once_with(prog, "Filip")
 
 
+    def _client_with_responses(self, *responses):
+        c = ngclient.NGClient("u", "p")
+        c.s = mock.Mock()
+        c.s.request.side_effect = list(responses)
+        return c
+
+    @staticmethod
+    def _ok():
+        r = mock.Mock(status_code=200, content=b"{}")
+        r.json.return_value = {}
+        return r
+
+    def test_read_call_retries_on_timeout_then_succeeds(self):
+        c = self._client_with_responses(ngclient.ReadTimeout(), ngclient.ReadTimeout(), self._ok())
+        with mock.patch.object(ngclient.time, "sleep"):
+            c._call("GET", "/x", retries=2)
+        self.assertEqual(c.s.request.call_count, 3)
+
+    def test_read_call_gives_up_after_retries(self):
+        c = self._client_with_responses(*[ngclient.ReadTimeout()] * 3)
+        with mock.patch.object(ngclient.time, "sleep"):
+            with self.assertRaises(NGError):
+                c._call("GET", "/x", retries=2)
+        self.assertEqual(c.s.request.call_count, 3)
+
+    def test_book_is_never_retried(self):
+        c = self._client_with_responses(ngclient.ReadTimeout(), self._ok())
+        c.members = [{"key": "Filip", "memberID": "m", "siteID": "s", "isGold": False}]
+        prog = {"raw": {"dateTimeAsISOString": "x", "activityID": 1, "className": "c"}}
+        with mock.patch.object(ngclient.time, "sleep"):
+            with self.assertRaises(NGError):
+                c.book(prog)
+        self.assertEqual(c.s.request.call_count, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

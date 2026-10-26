@@ -357,11 +357,16 @@ def main():
             attempt = 1
             deferred = set()  # selection ids that failed and are waiting for the retry interval
             while True:
-                visible = any(date_of(d) == only_date and not client.is_blocked(d) for d in client.dates())
-                pending, failed = (
-                    attempt_pass(client, sels, log, "scheduled", only_date=only_date, skip=deferred)
-                    if visible else ({None}, set())
-                )
+                try:
+                    visible = any(date_of(d) == only_date and not client.is_blocked(d) for d in client.dates())
+                    pending, failed = (
+                        attempt_pass(client, sels, log, "scheduled", only_date=only_date, skip=deferred)
+                        if visible else ({None}, set())
+                    )
+                except NGError as e:
+                    # Read calls already retried inside the client; keep polling until the deadline.
+                    say(f"Pass failed, will retry until the deadline: {e}")
+                    visible, pending, failed = False, {None}, set()
                 deferred |= {sid for sid, _ in failed}
                 if visible and not pending:
                     if not deferred:
