@@ -154,5 +154,17 @@
     "slot": "19:30",
     "result": "waitlisted",
     "message": ""
+  },
+  {
+    "time": "2026-10-27T10:18:18+11:00",
+    "mode": "now",
+    "selectionId": "groupex|Theresa|Sculpt Class|1|08:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Class",
+    "date": "2026-11-03",
+    "slot": "08:30",
+    "result": "booked",
+    "message": ""
   }
 ]
