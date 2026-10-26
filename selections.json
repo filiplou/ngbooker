@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-26T23:17:43.262Z",
+  "updated": "2026-10-26T23:17:56.378Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -83,6 +83,16 @@
       "progId": "Sculpt Class|1|08:30",
       "kind": "groupex",
       "who": "Filip",
+      "className": "Sculpt Class",
+      "time": "08:30",
+      "weekday": 1,
+      "activityID": "RE1TU0830AUG22A"
+    },
+    {
+      "id": "groupex|Theresa|Sculpt Class|1|08:30",
+      "progId": "Sculpt Class|1|08:30",
+      "kind": "groupex",
+      "who": "Theresa",
       "className": "Sculpt Class",
       "time": "08:30",
       "weekday": 1,
