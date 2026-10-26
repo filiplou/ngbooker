@@ -20,6 +20,9 @@ from ngclient import NGError, SYD, client_from_env, date_of, find_booking, norma
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 DONE = {"booked", "waitlisted", "already"}
+# After a timeout / 5xx the booking may have landed server-side. Re-read My Bookings a few
+# times (seconds between attempts) before recording a failure.
+AMBIGUOUS_RETRY_DELAYS = (0, 5, 10)
 
 
 def load(name, default):
@@ -69,6 +72,30 @@ def manual_target_date(client, selection, after_date):
     return min(matching_dates, default=None)
 
 
+def ambiguous_error(msg):
+    """True when a failed request may still have been applied by the site (timeout / 5xx)."""
+    m = msg.lower()
+    return (
+        "timed out" in m
+        or "timeout" in m
+        or "connection error" in m
+        or "connection reset" in m
+        or "connection aborted" in m
+        or m.startswith("http 5")
+    )
+
+
+def booking_after_error(client, prog, who):
+    """Re-read My Bookings after an ambiguous error. Returns the confirmed result or None."""
+    try:
+        b = find_booking(client.my_bookings(who), prog["className"], prog["date"], prog["time"])
+    except NGError:
+        return None
+    if b is None:
+        return None
+    return "waitlisted" if b.get("isOnWaitList") else "booked"
+
+
 def try_book(client, d, prog, who=None):
     """Return (result, message). The site's MakeBooking call books the slot or joins the waiting list."""
     raw = prog.get("raw") or {}
@@ -85,7 +112,16 @@ def try_book(client, d, prog, who=None):
         ok = client.book(prog, who)
     except NGError as e:
         msg = str(e)
-        return ("already" if "already" in msg.lower() else "failed"), msg
+        if "already" in msg.lower():
+            return "already", msg
+        if ambiguous_error(msg):
+            for delay in AMBIGUOUS_RETRY_DELAYS:
+                if delay:
+                    time.sleep(delay)
+                result = booking_after_error(client, prog, who)
+                if result:
+                    return result, msg
+        return "failed", msg
     if ok is not True:
         return "failed", "site did not confirm the booking"
     # Re-read bookings so we can report booked vs waiting list accurately.
@@ -135,10 +171,14 @@ def target_day(advance_days=7):
     return now().date() + timedelta(days=advance_days)
 
 
-def attempt_pass(client, sels, log, mode, only_date=None):
-    """One pass over the single target day (default: today + 7). Returns the set of
-    (selection id, date) not yet published. Each selection is for one session type (kind) and one member (who)."""
+def attempt_pass(client, sels, log, mode, only_date=None, skip=()):
+    """One pass over the single target day (default: today + 7). Returns
+    (unpublished, failed) sets of (selection id, date): not yet published, and attempted
+    but not booked. Each selection is for one session type (kind) and one member (who).
+    `skip` lists selection ids to leave alone (e.g. waiting for a delayed retry)."""
     only_date = only_date or target_day()
+    start_index = len(log)
+    skip = set(skip)
     unpublished = set()
     bookings = {}  # per member, read lazily
     court_booking_done = any(
@@ -159,6 +199,8 @@ def attempt_pass(client, sels, log, mode, only_date=None):
         progs = {}  # (kind, who) -> programs for this day
         for s in wanted:
             date_iso = day.isoformat()
+            if s["id"] in skip:
+                continue
             if already_done(log, s["id"], date_iso):
                 if s["kind"] == "courts" and any(
                     entry.get("selectionId") == s["id"]
@@ -222,7 +264,12 @@ def attempt_pass(client, sels, log, mode, only_date=None):
                 if s["kind"] == "courts" and result in {"booked", "already"}:
                     court_booking_done = True
                     break
-    return unpublished
+    outcomes = {}
+    for entry in log[start_index:]:
+        if entry.get("date") == only_date.isoformat():
+            outcomes[entry.get("selectionId")] = entry.get("result")
+    failed = {(sid, only_date.isoformat()) for sid, result in outcomes.items() if result == "failed"}
+    return unpublished, failed
 
 
 def main():
@@ -233,6 +280,8 @@ def main():
     ap.add_argument("--advance-days", type=int, default=7)
     ap.add_argument("--max-wait", type=int, default=300, help="seconds to keep polling after release")
     ap.add_argument("--poll", type=float, default=3.0)
+    ap.add_argument("--max-tries", type=int, default=3, help="scheduled-mode attempts per failed booking")
+    ap.add_argument("--retry-delay", type=int, default=300, help="seconds between failed-booking retries")
     args = ap.parse_args()
 
     sel_data = load("selections.json", {"selections": []})
@@ -303,16 +352,34 @@ def main():
             if wait > 0:
                 say(f"Waiting {wait:.0f}s until {release_at:%H:%M} Sydney time...")
                 time.sleep(wait)
-            deadline = max(now(), release_at) + timedelta(seconds=args.max_wait)
+            retry_extra = max(0, args.max_tries - 1) * args.retry_delay
+            deadline = max(now(), release_at) + timedelta(seconds=args.max_wait + retry_extra)
+            attempt = 1
+            deferred = set()  # selection ids that failed and are waiting for the retry interval
             while True:
                 visible = any(date_of(d) == only_date and not client.is_blocked(d) for d in client.dates())
-                pending = attempt_pass(client, sels, log, "scheduled", only_date=only_date) if visible else {None}
+                pending, failed = (
+                    attempt_pass(client, sels, log, "scheduled", only_date=only_date, skip=deferred)
+                    if visible else ({None}, set())
+                )
+                deferred |= {sid for sid, _ in failed}
                 if visible and not pending:
-                    break
+                    if not deferred:
+                        break
+                    if attempt >= args.max_tries:
+                        say(f"Giving up after {attempt} attempts ({len(deferred)} booking(s) failed).")
+                        break
+                    attempt += 1
+                    say(f"Retrying {len(deferred)} failed booking(s) in {args.retry_delay}s "
+                        f"(attempt {attempt}/{args.max_tries})...")
+                    time.sleep(args.retry_delay)
+                    deferred.clear()
+                    continue
                 if now() > deadline:
-                    for s in sels:
-                        if s["weekday"] == only_date.weekday() and not already_done(log, s["id"], only_date.isoformat()):
-                            record(log, "scheduled", s, {"date": only_date.isoformat()}, "not-published",
+                    for sid, date_iso in pending:
+                        s = next((x for x in sels if x["id"] == sid), None)
+                        if s is not None:
+                            record(log, "scheduled", s, {"date": date_iso}, "not-published",
                                    "session not found before the polling deadline")
                     break
                 time.sleep(args.poll)

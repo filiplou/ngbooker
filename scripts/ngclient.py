@@ -75,6 +75,11 @@ def _display_hhmm(s):
     return None
 
 
+def _log_path(path):
+    """Keep member ids out of the timing log."""
+    return re.sub(r"(/GetMemberBookings/)[^/?#]+", r"\1{memberID}", path)
+
+
 def sanitize(obj):
     """Drop personal keys (member ids, emails...) before anything is written to the public repo."""
     if isinstance(obj, dict):
@@ -218,13 +223,19 @@ class NGClient:
         self.is_gold = False
 
     # -- low level ---------------------------------------------------------
-    def _call(self, method, path, **kw):
+    def _call(self, method, path, timeout=30, **kw):
+        started = time.monotonic()
         try:
-            r = self.s.request(method, API + path, timeout=30, **kw)
+            r = self.s.request(method, API + path, timeout=timeout, **kw)
         except ReadTimeout:
+            elapsed = time.monotonic() - started
+            print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} timed out after {elapsed:.1f}s (limit {timeout}s)", flush=True)
             raise NGError(f"Request timed out: {path}")
         except RequestsConnectionError as e:
+            elapsed = time.monotonic() - started
+            print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} connection error after {elapsed:.1f}s: {e}", flush=True)
             raise NGError(f"Connection error on {path}: {e}")
+        elapsed = time.monotonic() - started
         if r.status_code >= 400:
             msg = None
             try:
@@ -233,7 +244,9 @@ class NGClient:
                     msg = j.get("message") or j.get("Message")
             except ValueError:
                 pass
+            print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} -> HTTP {r.status_code} in {elapsed:.1f}s", flush=True)
             raise NGError(f"HTTP {r.status_code} {method} {path}: {msg or 'request failed'}")
+        print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} -> {r.status_code} in {elapsed:.1f}s", flush=True)
         return r.json() if r.content else None
 
     def login(self, retries=3, retry_delay=10):
@@ -418,7 +431,7 @@ class NGClient:
                 "memberID": m["memberID"],
                 "siteID": m["siteID"],
             }
-            return self._call("POST", "/MakeActivityBooking", json=data)
+            return self._call("POST", "/MakeActivityBooking", json=data, timeout=60)
         data = {
             "dateTimeAsISOString": raw["dateTimeAsISOString"],
             "activityID": raw["activityID"],
@@ -427,7 +440,7 @@ class NGClient:
             "dateTime": raw.get("dateTime"),
             "className": raw["className"],
         }
-        return self._call("POST", "/MakeBooking", json=data)
+        return self._call("POST", "/MakeBooking", json=data, timeout=60)
 
     def my_bookings(self, who=None):
         data = self._call("GET", f"/GetMemberBookings/{self.member(who)['memberID']}")

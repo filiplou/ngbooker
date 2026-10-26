@@ -83,9 +83,16 @@ class Tests(unittest.TestCase):
 
     def test_not_published_yet(self):
         c, log = FakeClient(self.day, []), []
-        pending = self.run_pass(c, log)
+        pending, failed = self.run_pass(c, log)
         self.assertEqual(pending, {(self.sel[0]["id"], self.day.isoformat())})
+        self.assertEqual(failed, set())
         self.assertEqual(log, [])
+
+    def test_failed_booking_is_reported_for_retry(self):
+        c, log = FakeClient(self.day, [self.prog], book_error="boom"), []
+        pending, failed = self.run_pass(c, log)
+        self.assertEqual(pending, set())
+        self.assertEqual(failed, {(self.sel[0]["id"], self.day.isoformat())})
 
     def test_manual_target_date_uses_nearest_future_matching_weekday(self):
         friday = normalise_selection(
@@ -175,6 +182,98 @@ class Tests(unittest.TestCase):
         c.book_error = None
         self.run_pass(c, log)
         self.assertEqual(c.booked, [self.prog["id"]])
+
+    def landed(self, waitlist=False):
+        return {"className": "Social Tennis C1", "displayDate": self.day.strftime("%A %d %B"),
+                "displayTime": "6:30 PM", "isOnWaitList": waitlist}
+
+    def test_timeout_that_landed_is_recorded_as_booked(self):
+        client = mock.Mock()
+        client.book.side_effect = NGError("Request timed out: /MakeBooking")
+        client.my_bookings.return_value = [self.landed()]
+        result, message = book.try_book(client, {}, self.prog, "Filip")
+        self.assertEqual(result, "booked")
+        self.assertEqual(message, "Request timed out: /MakeBooking")
+
+    def test_server_error_that_landed_on_the_waiting_list_is_recorded(self):
+        client = mock.Mock()
+        client.book.side_effect = NGError("HTTP 502 POST /MakeBooking: bad gateway")
+        client.my_bookings.return_value = [self.landed(waitlist=True)]
+        result, _ = book.try_book(client, {}, self.prog, "Filip")
+        self.assertEqual(result, "waitlisted")
+
+    def test_timeout_that_did_not_land_is_recorded_as_failed(self):
+        client = mock.Mock()
+        client.book.side_effect = NGError("Request timed out: /MakeBooking")
+        client.my_bookings.return_value = []
+        with mock.patch("book.time.sleep"):
+            result, _ = book.try_book(client, {}, self.prog, "Filip")
+        self.assertEqual(result, "failed")
+
+    def test_business_error_is_not_treated_as_ambiguous(self):
+        client = mock.Mock()
+        client.book.side_effect = NGError("You have another concurrent reservation")
+        with mock.patch("book.time.sleep") as sleep:
+            result, _ = book.try_book(client, {}, self.prog, "Filip")
+        self.assertEqual(result, "failed")
+        sleep.assert_not_called()
+        client.my_bookings.assert_not_called()
+
+    def test_scheduled_booking_retries_twice_then_succeeds(self):
+        day = datetime(2026, 11, 2).date()
+        dt = datetime(2026, 11, 2, 18, 30, tzinfo=SYD)
+        prog = normalise_program({"className": "Social Tennis", "activityID": "A1",
+                                  "dateTimeAsISOString": dt.isoformat(), "dateTime": "x"}, "groupex")
+        selection = normalise_selection({"id": prog["id"], "kind": "groupex", "who": "Filip",
+                                         "className": "Social Tennis", "time": "18:30", "weekday": 0}, "Filip")
+        client = FakeClient(day, [prog])
+        client.member_keys = lambda: ["Filip"]
+        attempts, results = [], [NGError("boom"), NGError("boom"), True]
+
+        def book_once(p, who=None):
+            attempts.append(p["id"])
+            outcome = results.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            client.booked.append(p["id"])
+            client.booked_for = getattr(client, "booked_for", []) + [who]
+            return True
+
+        client.book = book_once
+        data = {"selections.json": {"selections": [selection]}, "bookings-log.json": []}
+        saved = []
+        with (
+            mock.patch("sys.argv", ["book.py", "--mode", "scheduled"]),
+            mock.patch.object(book, "now", return_value=datetime(2026, 10, 26, 7, 55, tzinfo=SYD)),
+            mock.patch.object(book, "load", side_effect=lambda name, default: data[name]),
+            mock.patch.object(book, "client_from_env", return_value=client),
+            mock.patch.object(book, "save", side_effect=lambda name, value: saved.extend(value)),
+            mock.patch("book.time.sleep"),
+        ):
+            book.main()
+
+        self.assertEqual(len(attempts), 3)
+        self.assertEqual(saved[-1]["result"], "booked")
+
+    def test_booking_calls_use_60s_timeout(self):
+        c = ngclient.NGClient("testuser", "testpw")
+        c.members = [{"key": "Filip", "memberID": "M123", "siteID": "RY", "isGold": False}]
+        calls = []
+
+        def fake_call(method, path, **kw):
+            calls.append((path, kw.get("timeout")))
+            return True
+
+        c._call = fake_call
+        c.book(self.prog, "Filip")
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        court = normalise_court_slot(
+            {"productName": "1", "dateTime": self.dt.isoformat(), "resourceProductID": "RES1", "status": "Available"},
+            facility, {"activityID": "ACT30", "duration": 30}, self.day,
+        )
+        c.book(court, "Filip")
+        self.assertIn(("/MakeBooking", 60), calls)
+        self.assertIn(("/MakeActivityBooking", 60), calls)
 
     def test_sanitize_strips_personal_keys(self):
         self.assertEqual(sanitize({"a": 1, "memberID": "x", "n": [{"email": "e", "ok": 2}]}), {"a": 1, "n": [{"ok": 2}]})

@@ -10,7 +10,7 @@ main branch  : code (scripts/, workflows, index.html = dashboard on GitHub Pages
 data branch  : selections.json, sessions.json, members.json, my-bookings.json, bookings-log.json, vault.json
 
 Dashboard --GitHub API--> data branch (selections.json)
-cron-job.org (07:55 Sydney, daily) --workflow_dispatch--> book.yml (GitHub's own cron is a late backup)
+cron-job.org (07:55 Sydney, daily) --workflow_dispatch--> book.yml
 book.yml --runs from main, environment "club"-->
    logs in via the club site's own API, waits for the configured release time, books the day 7 days ahead,
    writes bookings-log.json to the data branch
@@ -139,9 +139,16 @@ If you change the release time in ⚙ Settings, move the cron-job.org schedule t
 dashboard setting. The dispatch must land within 90 minutes of the release time and no more than about an hour
 early (the job times out after 60 minutes).
 
-**Backup: GitHub cron.** `book.yml` also keeps two cron entries (UTC 20:30 and 21:30, covering AEDT UTC+11 and
-AEST UTC+10). The script exits silently if the current Sydney time is not within 90 minutes of the release
-time, and it never rebooks a session already done, so these are harmless.
+**Timeouts and retries.** Every API call logs its duration as `[api] METHOD path -> status in Xs`.
+`MakeBooking` and `MakeActivityBooking` use a 60-second read timeout. If a scheduled attempt fails, the run
+retries the failed selections up to **3 attempts, 5 minutes apart**. Before retrying it re-reads My Bookings,
+so a request that timed out but actually landed is not sent again.
+
+**GitHub cron is disabled.** The `schedule:` entries were removed from `book.yml`: GitHub's scheduler was
+regularly delivering them 1-3 hours late (e.g. a 07:30 Sydney run arriving at 10:29), so they always landed
+outside the booking window. Only cron-job.org triggers scheduled runs now; `workflow_dispatch` also remains for
+the dashboard's "Book now" button. If a booking request times out, the script re-reads My Bookings before
+recording a failure, so a booking that landed server-side is not logged as failed.
 
 ## Pausing bookings
 
