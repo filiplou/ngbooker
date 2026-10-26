@@ -40,3 +40,13 @@
   - [x] Match court bookings without confusing court identifiers with social-session identifiers
   - [x] Prevent booking a court that is unavailable when the booking workflow rechecks it
   - [x] Verify the complete suite (23 tests passing)
+- [x] 8. Scheduling & timeout hardening
+  - [x] Remove the GitHub `schedule:` triggers from `book.yml` (scheduler ran 1-3 h late and always missed the window)
+  - [x] Keep the external cron-job.org `workflow_dispatch` trigger as the sole scheduled run
+  - [x] Re-check My Bookings after ambiguous `MakeBooking` failures (timeout / connection / 5xx) before recording "failed"
+  - [x] Add regression tests for landed-vs-not-landed ambiguous failures
+  - [x] Raise `MakeBooking` / `MakeActivityBooking` timeouts to 60 s
+  - [x] Add per-API-call timing logs (`[api] METHOD path -> status in Xs`)
+  - [x] Retry failed scheduled bookings up to 3 attempts, 5 minutes apart (skipped once visible in My Bookings)
+  - [x] Update `Project.md` trigger documentation
+  - [x] Verify the complete suite (39 tests passing)
