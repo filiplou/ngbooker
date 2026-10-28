@@ -166,5 +166,17 @@
     "slot": "08:30",
     "result": "booked",
     "message": ""
+  },
+  {
+    "time": "2026-10-29T08:52:36+11:00",
+    "mode": "now",
+    "selectionId": "racquet|Filip|Social Doubles B2 C1-2|3|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles B2 C1-2",
+    "date": "2026-11-05",
+    "slot": "19:30",
+    "result": "waitlisted",
+    "message": ""
   }
 ]
