@@ -178,5 +178,17 @@
     "slot": "19:30",
     "result": "waitlisted",
     "message": ""
+  },
+  {
+    "time": "2026-10-29T08:53:06+11:00",
+    "mode": "now",
+    "selectionId": "groupex|Theresa|BodyPump®|3|09:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "BodyPump®",
+    "date": "2026-11-05",
+    "slot": "09:30",
+    "result": "waitlisted",
+    "message": ""
   }
 ]
