@@ -278,9 +278,9 @@ def main():
     ap.add_argument("--selection-id", default="")
     ap.add_argument("--release", default="08:01", help="HH:MM Sydney time the new day is published")
     ap.add_argument("--advance-days", type=int, default=7)
-    ap.add_argument("--max-wait", type=int, default=300, help="seconds to keep polling after release")
+    ap.add_argument("--max-wait", type=int, default=600, help="seconds to keep polling after release")
     ap.add_argument("--poll", type=float, default=3.0)
-    ap.add_argument("--max-tries", type=int, default=3, help="scheduled-mode attempts per failed booking")
+    ap.add_argument("--max-tries", type=int, default=5, help="scheduled-mode attempts per failed booking")
     ap.add_argument("--retry-delay", type=int, default=300, help="seconds between failed-booking retries")
     args = ap.parse_args()
 
@@ -381,7 +381,10 @@ def main():
                     deferred.clear()
                     continue
                 if now() > deadline:
-                    for sid, date_iso in pending:
+                    for item in pending:
+                        if item is None:
+                            continue
+                        sid, date_iso = item
                         s = next((x for x in sels if x["id"] == sid), None)
                         if s is not None:
                             record(log, "scheduled", s, {"date": date_iso}, "not-published",
