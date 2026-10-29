@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-28T10:51:08+11:00",
+  "updated": "2026-10-29T11:04:21+11:00",
   "bookings": [
     {
       "bookingID": 21084188,
@@ -24,6 +24,17 @@
       "who": "Filip"
     },
     {
+      "bookingID": 21084189,
+      "displayDate": "Thursday 5 November",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles B2 C1-2 C1",
+      "duration": "60 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": true,
+      "firstName": null,
+      "who": "Filip"
+    },
+    {
       "bookingID": 20957886,
       "displayDate": "Tuesday 3 November",
       "displayTime": "9:00 AM",
@@ -33,28 +44,6 @@
       "isOnWaitList": true,
       "firstName": null,
       "who": "Chantal"
-    },
-    {
-      "bookingID": 20957259,
-      "displayDate": "Thursday 29 October",
-      "displayTime": "8:30 AM",
-      "className": "Sculpt Booty Band",
-      "duration": "55 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Theresa"
-    },
-    {
-      "bookingID": 20957293,
-      "displayDate": "Thursday 29 October",
-      "displayTime": "9:30 AM",
-      "className": "BodyPump®",
-      "duration": "55 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": true,
-      "firstName": null,
-      "who": "Theresa"
     },
     {
       "bookingID": 21087684,
@@ -97,6 +86,17 @@
       "duration": "55 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20958216,
+      "displayDate": "Thursday 5 November",
+      "displayTime": "9:30 AM",
+      "className": "BodyPump®",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": true,
       "firstName": null,
       "who": "Theresa"
     }
