@@ -1,17 +1,6 @@
 {
-  "updated": "2026-10-29T11:04:21+11:00",
+  "updated": "2026-10-30T10:59:55+11:00",
   "bookings": [
-    {
-      "bookingID": 21084188,
-      "displayDate": "Thursday 29 October",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles B2 C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
     {
       "bookingID": 21084037,
       "displayDate": "Tuesday 3 November",
@@ -44,17 +33,6 @@
       "isOnWaitList": true,
       "firstName": null,
       "who": "Chantal"
-    },
-    {
-      "bookingID": 21087684,
-      "displayDate": "Friday 30 October",
-      "displayTime": "8:30 AM",
-      "className": "Spooky Spin",
-      "duration": "55 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Theresa"
     },
     {
       "bookingID": 21125951,
