@@ -190,5 +190,53 @@
     "slot": "09:30",
     "result": "waitlisted",
     "message": ""
+  },
+  {
+    "time": "2026-11-01T08:31:11+11:00",
+    "mode": "scheduled",
+    "selectionId": "courts|Filip|Any court (30 min)|6|17:00",
+    "kind": "courts",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-11-08",
+    "slot": "17:00",
+    "result": "not-published",
+    "message": "session not found before the polling deadline"
+  },
+  {
+    "time": "2026-11-01T08:31:11+11:00",
+    "mode": "scheduled",
+    "selectionId": "courts|Filip|Any court (30 min)|6|17:30",
+    "kind": "courts",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-11-08",
+    "slot": "17:30",
+    "result": "not-published",
+    "message": "session not found before the polling deadline"
+  },
+  {
+    "time": "2026-11-01T08:31:11+11:00",
+    "mode": "scheduled",
+    "selectionId": "courts|Filip|Any court (30 min)|6|16:00",
+    "kind": "courts",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-11-08",
+    "slot": "16:00",
+    "result": "not-published",
+    "message": "session not found before the polling deadline"
+  },
+  {
+    "time": "2026-11-01T08:31:11+11:00",
+    "mode": "scheduled",
+    "selectionId": "courts|Filip|Any court (30 min)|6|16:30",
+    "kind": "courts",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-11-08",
+    "slot": "16:30",
+    "result": "not-published",
+    "message": "session not found before the polling deadline"
   }
 ]
