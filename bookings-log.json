@@ -238,5 +238,29 @@
     "slot": "16:30",
     "result": "not-published",
     "message": "session not found before the polling deadline"
+  },
+  {
+    "time": "2026-11-02T08:08:34+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band",
+    "date": "2026-11-09",
+    "slot": "09:10",
+    "result": "failed",
+    "message": "Request timed out: /MakeBooking"
+  },
+  {
+    "time": "2026-11-02T08:14:06+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band",
+    "date": "2026-11-09",
+    "slot": "09:10",
+    "result": "already",
+    "message": "found in My Bookings"
   }
 ]
