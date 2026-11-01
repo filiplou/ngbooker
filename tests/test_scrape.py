@@ -56,8 +56,9 @@ class ScrapeTests(unittest.TestCase):
         )
 
     def test_fetches_sessions_once_and_assigns_them_to_every_member(self):
-        day = datetime(2026, 10, 30, tzinfo=SYD).date()
-        date_time = datetime(2026, 10, 30, 9, 30, tzinfo=SYD)
+        # Relative to now: scrape.main() drops today and past days, so fixed dates would rot.
+        day = datetime.now(SYD).date() + timedelta(days=1)
+        date_time = datetime(day.year, day.month, day.day, 9, 30, tzinfo=SYD)
         programs = {
             "racquet": [normalise_program({
                 "className": "Tennis Social",

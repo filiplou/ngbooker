@@ -50,3 +50,14 @@
   - [x] Retry failed scheduled bookings up to 3 attempts, 5 minutes apart (skipped once visible in My Bookings)
   - [x] Update `Project.md` trigger documentation
   - [x] Verify the complete suite (39 tests passing)
+
+- [x] Review-findings fixes (`issue.md`)
+  - [x] Dashboard: `saveSettings` waits for the save, handles 409, and edits are blocked from racing with pause/remove
+  - [x] Only book courts whose status is `Available`; otherwise `not-published` (now) / keep polling (scheduled)
+  - [x] Make the scrape test date-independent (dates relative to today)
+  - [x] Separate concurrency groups (`ng-book`, `ng-scrape`) and retry `git push` after `pull --rebase`
+  - [x] Retry login on HTTP 429 / 5xx
+  - [x] `--release` defaults to `None`, falling back to `selections.json` `releaseTime`, then `08:01`
+  - [x] Correct retry count (5, not 3) in `Project.md`; document final-state and concurrency behaviour
+  - [x] Verify the complete suite (49 tests passing)
+
