@@ -222,10 +222,18 @@ def attempt_pass(client, sels, log, mode, only_date=None, skip=()):
                         progs[key] = client.programs(d, s["kind"], s["who"])
                     candidates = [
                         p for p in progs[key]
-                        if p["time"] == s["time"] and (p.get("raw") or {}).get("duration") == 30
+                        if p["time"] == s["time"]
+                        and (p.get("raw") or {}).get("duration") == 30
+                        and (p.get("raw") or {}).get("status") == "Available"
                     ]
                     if not candidates:
-                        unpublished.add((s["id"], date_iso))
+                        # No free court at this time: not a booking failure, so do not burn a POST per court
+                        # or start the failed-booking retry loop. Scheduled runs keep polling for cancellations.
+                        if mode == "now":
+                            record(log, mode, s, {"date": date_iso}, "not-published",
+                                   f"no court is available at {s['time']}")
+                        else:
+                            unpublished.add((s["id"], date_iso))
                         continue
                 else:
                     prog = saved_court_program(s, day)
@@ -276,7 +284,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["scheduled", "now"], default="scheduled")
     ap.add_argument("--selection-id", default="")
-    ap.add_argument("--release", default="08:01", help="HH:MM Sydney time the new day is published")
+    ap.add_argument("--release", default=None,
+                    help="HH:MM Sydney time the new day is published (default: releaseTime in selections.json, else 08:01)")
     ap.add_argument("--advance-days", type=int, default=7)
     ap.add_argument("--max-wait", type=int, default=600, help="seconds to keep polling after release")
     ap.add_argument("--poll", type=float, default=3.0)
@@ -293,7 +302,7 @@ def main():
         say("No matching selections - nothing to do.")
         return 0
     # Release time can be overridden via selections.json (set from the dashboard Settings tab).
-    if not args.release or args.release == "08:01":
+    if not args.release:
         args.release = sel_data.get("releaseTime", "08:01")
 
     log = load("bookings-log.json", [])

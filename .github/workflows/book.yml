@@ -18,8 +18,9 @@ on:
 permissions:
   contents: write
 
+# Own group so a slow/queued scrape run can never delay or displace the time-critical booking run.
 concurrency:
-  group: ng-data-writes
+  group: ng-book
   cancel-in-progress: false
 
 jobs:
@@ -59,5 +60,10 @@ jobs:
           git -C data add bookings-log.json
           git -C data diff --cached --quiet && exit 0
           git -C data commit -m "Update bookings log"
-          git -C data pull --rebase origin data
-          git -C data push origin HEAD:data
+          # Scrape pushes to the same branch (different files), so retry if the push races.
+          for attempt in 1 2 3 4 5; do
+            git -C data pull --rebase origin data && git -C data push origin HEAD:data && exit 0
+            echo "push attempt $attempt failed; retrying..."
+            sleep $((attempt * 3))
+          done
+          exit 1

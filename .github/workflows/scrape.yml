@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: ng-data-writes
+  group: ng-scrape
   cancel-in-progress: false
 
 jobs:
@@ -46,5 +46,10 @@ jobs:
           git -C data add sessions.json my-bookings.json members.json
           git -C data diff --cached --quiet && exit 0
           git -C data commit -m "Refresh sessions"
-          git -C data pull --rebase origin data
-          git -C data push origin HEAD:data
+          # The booking run pushes to the same branch (different files), so retry if the push races.
+          for attempt in 1 2 3 4 5; do
+            git -C data pull --rebase origin data && git -C data push origin HEAD:data && exit 0
+            echo "push attempt $attempt failed; retrying..."
+            sleep $((attempt * 3))
+          done
+          exit 1

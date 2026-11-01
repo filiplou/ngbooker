@@ -280,7 +280,14 @@ class NGClient:
                     msg = r.json().get("error_description")
                 except ValueError:
                     msg = None
-                raise NGError(f"Login failed (HTTP {r.status_code}): {msg or 'unknown error'}")
+                err = NGError(f"Login failed (HTTP {r.status_code}): {msg or 'unknown error'}")
+                if r.status_code == 429 or r.status_code >= 500:
+                    # Transient server-side failure: retry like a timeout. Other 4xx (bad credentials) fail fast.
+                    last_err = err
+                    if attempt < retries:
+                        time.sleep(retry_delay)
+                    continue
+                raise err
             self.s.headers["Authorization"] = "Bearer " + r.json()["access_token"]
             try:
                 graph = self._call("GET", "/GetMemberDetailGraph")

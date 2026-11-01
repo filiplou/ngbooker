@@ -406,7 +406,7 @@ class Tests(unittest.TestCase):
             dt = self.dt + timedelta(minutes=offset * 30)
             prog = normalise_court_slot(
                 {"productName": court, "dateTime": dt.isoformat(), "resourceProductID": f"RES{court}",
-                 "status": "NotAvailable"},
+                 "status": "Available"},
                 facility,
                 duration,
                 self.day,
@@ -437,7 +437,7 @@ class Tests(unittest.TestCase):
                 duration,
                 self.day,
             )
-            for court, status in (("1", "NotAvailable"), ("2", "Available"))
+            for court, status in (("1", "Available"), ("2", "Available"))
         ]
         time_id = f"Any court (30 min)|{self.dt.weekday()}|{self.dt.strftime('%H:%M')}"
         selection = normalise_selection({
@@ -456,6 +456,46 @@ class Tests(unittest.TestCase):
                          ["RES1", "RES2"])
         self.assertEqual([entry["result"] for entry in log], ["failed", "booked"])
         self.assertTrue(all(entry["className"] == "Any court (30 min)" for entry in log))
+
+    def _any_court_selection_with_statuses(self, *statuses):
+        facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
+        duration = {"durationName": "30 mins", "activityID": "ACT30", "duration": 30}
+        programs = [
+            normalise_court_slot(
+                {"productName": str(i + 1), "dateTime": self.dt.isoformat(),
+                 "resourceProductID": f"RES{i + 1}", "status": status},
+                facility, duration, self.day,
+            )
+            for i, status in enumerate(statuses)
+        ]
+        selection = normalise_selection({
+            "id": f"Any court (30 min)|{self.dt.weekday()}|{self.dt.strftime('%H:%M')}",
+            "kind": "courts", "who": "Filip", "className": "Any court (30 min)",
+            "time": self.dt.strftime("%H:%M"), "weekday": self.dt.weekday(), "duration": 30,
+        }, "Filip")
+        c = FakeClient(self.day, programs)
+        c.my_bookings = lambda who=None: []
+        c.book = mock.Mock(return_value=True)
+        return c, selection
+
+    def test_unavailable_courts_are_not_booked_in_now_mode(self):
+        c, selection = self._any_court_selection_with_statuses("NotAvailable", "NotAvailable")
+        log = []
+        with mock.patch.object(book, "date_of", lambda d: self.day):
+            book.attempt_pass(c, [selection], log, "now")
+        c.book.assert_not_called()
+        self.assertEqual([entry["result"] for entry in log], ["not-published"])
+        self.assertIn("no court is available", log[0]["message"])
+
+    def test_unavailable_courts_keep_scheduled_mode_polling(self):
+        c, selection = self._any_court_selection_with_statuses("NotAvailable")
+        log = []
+        with mock.patch.object(book, "date_of", lambda d: self.day):
+            unpublished, failed = book.attempt_pass(c, [selection], log, "scheduled")
+        c.book.assert_not_called()
+        self.assertEqual(log, [])
+        self.assertEqual(len(unpublished), 1)
+        self.assertEqual(failed, set())
 
     def test_saved_court_candidate_over_30_minutes_is_not_booked(self):
         selection = normalise_selection({
@@ -658,6 +698,61 @@ class Tests(unittest.TestCase):
             with self.assertRaises(NGError):
                 c.book(prog)
         self.assertEqual(c.s.request.call_count, 1)
+
+    @staticmethod
+    def _token_response(status, body=None):
+        r = mock.Mock(status_code=status, content=b"{}")
+        r.json.return_value = body or {}
+        return r
+
+    def _login_client(self, *token_responses):
+        c = ngclient.NGClient("u", "p")
+        c.s = mock.Mock()
+        c.s.headers = {}
+        c.s.post.side_effect = list(token_responses)
+        graph = mock.Mock(status_code=200, content=b"{}")
+        graph.json.return_value = {"members": [
+            {"memberID": "m1", "firstNames": "Filip", "sites": [{"siteID": "s1"}]}]}
+        c.s.request.return_value = graph
+        return c
+
+    def test_login_retries_on_5xx_then_succeeds(self):
+        c = self._login_client(self._token_response(503), self._token_response(200, {"access_token": "t"}))
+        with mock.patch.object(ngclient.time, "sleep"):
+            c.login(retries=3)
+        self.assertEqual(c.s.post.call_count, 2)
+        self.assertEqual(c.member_id, "m1")
+
+    def test_login_retries_on_429(self):
+        c = self._login_client(self._token_response(429), self._token_response(200, {"access_token": "t"}))
+        with mock.patch.object(ngclient.time, "sleep"):
+            c.login(retries=3)
+        self.assertEqual(c.s.post.call_count, 2)
+
+    def test_login_gives_up_after_retries_on_5xx(self):
+        c = self._login_client(*[self._token_response(502)] * 3)
+        with mock.patch.object(ngclient.time, "sleep"):
+            with self.assertRaisesRegex(NGError, "HTTP 502"):
+                c.login(retries=3)
+        self.assertEqual(c.s.post.call_count, 3)
+
+    def test_login_does_not_retry_bad_credentials(self):
+        c = self._login_client(self._token_response(400, {"error_description": "bad password"}))
+        with mock.patch.object(ngclient.time, "sleep"):
+            with self.assertRaisesRegex(NGError, "bad password"):
+                c.login(retries=3)
+        self.assertEqual(c.s.post.call_count, 1)
+
+    def test_release_time_defaults_to_selections_file(self):
+        sel_data = {"releaseTime": "07:45", "selections": [{"id": "x|1|18:30", "weekday": 1}]}
+        noon = datetime(2030, 1, 7, 12, 0, tzinfo=SYD)
+        said = []
+        with mock.patch.object(book, "load", side_effect=lambda name, d: sel_data if name == "selections.json" else d), \
+                mock.patch.object(book, "now", return_value=noon), \
+                mock.patch.object(book, "say", said.append), \
+                mock.patch.object(sys, "argv", ["book.py", "--mode", "scheduled"]):
+            self.assertEqual(book.main(), 0)
+        self.assertIn("release=07:45", said[-1])
 
 
 if __name__ == "__main__":

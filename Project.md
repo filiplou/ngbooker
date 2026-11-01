@@ -141,8 +141,13 @@ early (the job times out after 60 minutes).
 
 **Timeouts and retries.** Every API call logs its duration as `[api] METHOD path -> status in Xs`.
 `MakeBooking` and `MakeActivityBooking` use a 60-second read timeout. If a scheduled attempt fails, the run
-retries the failed selections up to **3 attempts, 5 minutes apart**. Before retrying it re-reads My Bookings,
-so a request that timed out but actually landed is not sent again.
+retries the failed selections up to **5 attempts (`--max-tries`, default 5), 5 minutes apart**. Before retrying it re-reads My Bookings,
+so a request that timed out but actually landed is not sent again. Login also retries on HTTP 429 and 5xx
+responses; other 4xx responses (e.g. bad credentials) fail immediately.
+
+**Workflow concurrency.** `book.yml` uses the `ng-book` concurrency group and `scrape.yml` uses `ng-scrape`, so a
+late scrape can never delay a booking. Both workflows retry `git pull --rebase` + `git push` (up to 5 attempts)
+when saving results to the `data` branch.
 
 **GitHub cron is disabled.** The `schedule:` entries were removed from `book.yml`: GitHub's scheduler was
 regularly delivering them 1-3 hours late (e.g. a 07:30 Sydney run arriving at 10:29), so they always landed
@@ -159,7 +164,11 @@ recording a failure, so a booking that landed server-side is not logged as faile
 ## Behaviour
 
 - Court choices are fixed half-hour times from 05:30 through 20:30. The booking run searches the matching
-  time across courts without using availability to filter the user's saved choices.
+  time across courts and only books a court whose status is `Available`. If no court is available at that time
+  it is recorded as `not-published` (`now` mode) or keeps polling (scheduled mode).
+- A selection that is booked, already booked or waitlisted for a date is final for that date: a booking you
+  cancel manually is not re-booked, and a waitlist spot is not re-checked for promotion.
+- The release time defaults to the `releaseTime` saved in `selections.json` (else `08:01`); `--release` overrides it.
 - A confirmed court booking ends court attempts for that run; a waitlist result is not a confirmed booking.
 - Only one confirmed 30-minute court booking is made per daily run, regardless of how many times are selected.
 - Only the day exactly 7 days ahead is ever attempted, so a Tuesday selection books next Tuesday and never today or other visible days (this avoids "concurrent reservation" errors).
