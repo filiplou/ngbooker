@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-02T08:46:47+11:00",
+  "updated": "2026-11-02T08:56:25+11:00",
   "bookings": [
     {
       "bookingID": 21084037,
@@ -22,17 +22,6 @@
       "isOnWaitList": true,
       "firstName": null,
       "who": "Filip"
-    },
-    {
-      "bookingID": 20957886,
-      "displayDate": "Tuesday 3 November",
-      "displayTime": "9:00 AM",
-      "className": "Vinyasa Yoga - Studio 2",
-      "duration": "55 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Chantal"
     },
     {
       "bookingID": 21125951,
