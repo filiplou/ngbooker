@@ -7,14 +7,14 @@ Supports **Tennis Socials**, **Courts**, and **Group exercise** bookings, for up
 
 ```
 main branch  : code (scripts/, workflows, index.html = dashboard on GitHub Pages)
-data branch  : selections.json, sessions.json, members.json, my-bookings.json, bookings-log.json, vault.json
+data branch  : selections.json, sessions.json, members.json, my-bookings.json, bookings-log.json, booking-times.json, vault.json
 
 Dashboard --GitHub API--> data branch (selections.json)
 cron-job.org (07:55 Sydney, daily) --workflow_dispatch--> book.yml
 book.yml --runs from main, environment "club"-->
    logs in via the club site's own API, waits for the configured release time, books the day 7 days ahead,
-   writes bookings-log.json to the data branch
-scrape.yml (daily / on demand) --> sessions.json + members.json + my-bookings.json on the data branch
+   writes bookings-log.json and booking-times.json to the data branch
+scrape.yml (daily / on demand / after every book.yml run) --> sessions.json + members.json + my-bookings.json on the data branch
 ```
 
 The refresh workflow has a 10-minute timeout and only scrapes future bookable dates (not today or past dates).
@@ -46,7 +46,7 @@ for that run. This is a maximum of one confirmed court booking per run.
 - *Current bookings on the club site* grouped by member, each with a Booked / Waitlisted tag, refreshed by the scrape workflow.
 - *Booking history* (bottom of the page) — last 10 booking attempts with result (`booked`, `waitlisted`, `already`, `failed`, `not-published`, `skipped`).
 
-**⚙ Settings** — configure the release time (default `08:01`), change the passphrase or GitHub token, lock this device.
+**⚙ Settings** — configure the release time (default `08:01`), see a line chart of when successful bookings were made (time of day per person over the last 30 days; stored in `booking-times.json`, entries older than 30 days are dropped on each booking run), change the passphrase or GitHub token, lock this device.
 
 ## Members and booking kinds
 

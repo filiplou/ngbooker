@@ -57,7 +57,7 @@ jobs:
         run: |
           git -C data config user.name "ngbooker[bot]"
           git -C data config user.email "ngbooker@users.noreply.github.com"
-          git -C data add bookings-log.json
+          git -C data add bookings-log.json booking-times.json
           git -C data diff --cached --quiet && exit 0
           git -C data commit -m "Update bookings log"
           # Scrape pushes to the same branch (different files), so retry if the push races.

@@ -144,14 +144,14 @@ class Tests(unittest.TestCase):
         ]
         client.member_keys = lambda: ["Filip"]
         saved_log = []
-        data = {"selections.json": {"selections": [friday]}, "bookings-log.json": []}
+        data = {"selections.json": {"selections": [friday]}, "bookings-log.json": [], "booking-times.json": []}
 
         with (
             mock.patch("sys.argv", ["book.py", "--mode", "now", "--selection-id", friday["id"]]),
             mock.patch.object(book, "now", return_value=datetime(2026, 10, 25, 16, 0, tzinfo=SYD)),
             mock.patch.object(book, "load", side_effect=lambda name, default: data[name]),
             mock.patch.object(book, "client_from_env", return_value=client),
-            mock.patch.object(book, "save", side_effect=lambda name, value: saved_log.extend(value)),
+            mock.patch.object(book, "save", side_effect=lambda name, value: saved_log.extend(value) if name == "bookings-log.json" else None),
         ):
             book.main()
 
@@ -240,20 +240,34 @@ class Tests(unittest.TestCase):
             return True
 
         client.book = book_once
-        data = {"selections.json": {"selections": [selection]}, "bookings-log.json": []}
+        data = {"selections.json": {"selections": [selection]}, "bookings-log.json": [], "booking-times.json": []}
         saved = []
         with (
             mock.patch("sys.argv", ["book.py", "--mode", "scheduled"]),
             mock.patch.object(book, "now", return_value=datetime(2026, 10, 26, 7, 55, tzinfo=SYD)),
             mock.patch.object(book, "load", side_effect=lambda name, default: data[name]),
             mock.patch.object(book, "client_from_env", return_value=client),
-            mock.patch.object(book, "save", side_effect=lambda name, value: saved.extend(value)),
+            mock.patch.object(book, "save", side_effect=lambda name, value: saved.extend(value) if name == "bookings-log.json" else None),
             mock.patch("book.time.sleep"),
         ):
             book.main()
 
         self.assertEqual(len(attempts), 3)
         self.assertEqual(saved[-1]["result"], "booked")
+
+    def test_booking_times_keep_only_booked_entries_from_last_30_days(self):
+        today = datetime(2026, 11, 3, 9, 0, tzinfo=SYD)
+
+        def entry(time, result="booked", sel="a"):
+            return {"time": time, "who": "Filip", "className": "Social", "date": "2026-11-10",
+                    "slot": "19:30", "selectionId": sel, "result": result, "message": ""}
+
+        times = [entry("2026-10-01T08:10:00+10:00"), entry("2026-10-10T08:10:00+11:00")]
+        log = [entry("2026-11-03T08:11:49+11:00"), entry("2026-11-03T08:11:50+11:00", "failed", "b"),
+               entry("2026-10-10T08:10:00+11:00")]  # duplicate of an existing entry
+        out = book.update_booking_times(times, log, today)
+        self.assertEqual([e["time"] for e in out], ["2026-10-10T08:10:00+11:00", "2026-11-03T08:11:49+11:00"])
+        self.assertNotIn("result", out[1])
 
     def test_booking_calls_use_60s_timeout(self):
         c = ngclient.NGClient("testuser", "testpw")
