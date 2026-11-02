@@ -176,6 +176,10 @@ recording a failure, so a booking that landed server-side is not logged as faile
 - The booked/waitlisted result is taken from the site's My Bookings (`isOnWaitList`) after booking. The site may append the court to the name (for example `Social Doubles C1-2` becomes `Social Doubles C1-2 C1`), so a booking matches if its name equals the selection name or starts with it followed by a space.
 - **Book now (test)** triggers `book.yml` in `now` mode for that one selection. It books the nearest future date of the selected weekday that the club currently makes available, regardless of what weekday the test is run. Scheduled bookings continue to target the day exactly 7 days ahead.
 - Silver members only see 7 days ahead; gold-only days are skipped automatically.
+- Courts are not re-checked against live availability at book time: ttempt_pass only offers slots that were Available in a fresh read, and courts have no waiting list. Classes are still re-checked.
+- A selection with several court candidates counts as failed (and is retried) only if every candidate failed; any booked/waitlisted/already result for it counts as success.
+- The booking name matching in the dashboard (
+ameMatches in index.html) and in ind_booking() (scripts/ngclient.py) must stay in sync.
 
 ## Security notes
 
@@ -188,6 +192,8 @@ recording a failure, so a booking that landed server-side is not logged as faile
 - If a phone is lost: revoke the dashboard token on GitHub and redo the vault setup.
 - Never put the token, member number or password in any file or in chat.
 - Check the club's terms allow automated booking.
+- *Remember on this device* is unticked by default because it stores the token unencrypted in the browser's local storage.
+- Workflow actions (ctions/checkout, ctions/setup-python) are pinned to full commit SHAs, so bump them manually (the tag is in the trailing comment).
 
 ## Tests
 

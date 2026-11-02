@@ -113,9 +113,12 @@ def booking_after_error(client, prog, who):
 
 def try_book(client, d, prog, who=None):
     """Return (result, message). The site's MakeBooking call books the slot or joins the waiting list."""
-    raw = prog.get("raw") or {}
-    on_wait_list = (raw.get("spacesAvailable", 0) or 0) < 0 or "waiting list" in str(raw.get("bookButtonDisplayString", "")).lower()
+    on_wait_list = False
+    # Courts are deliberately not re-checked: attempt_pass only offers slots whose status is "Available" from the
+    # fresh programs() read made moments earlier, and courts have no waiting list.
     if prog.get("kind") != "courts":
+        raw = prog.get("raw") or {}
+        on_wait_list = (raw.get("spacesAvailable", 0) or 0) < 0 or "waiting list" in str(raw.get("bookButtonDisplayString", "")).lower()
         try:
             chk = client.check(prog, d, who)
         except NGError as e:
@@ -147,39 +150,6 @@ def try_book(client, d, prog, who=None):
     except NGError:
         pass
     return ("waitlisted" if on_wait_list else "booked"), ""
-
-
-def saved_court_program(selection, day):
-    duration = selection.get("duration")
-    resource_id = selection.get("resourceProductID")
-    if not resource_id or selection.get("activityID") is None:
-        return None
-    if not isinstance(duration, (int, float)) or duration <= 0:
-        return None
-
-    hour, minute = map(int, selection["time"].split(":"))
-    dt = datetime(day.year, day.month, day.day, hour, minute, tzinfo=SYD)
-    start = dt.strftime("%Y-%m-%dT%H:%M:%S")
-    raw = {
-        "facilityType": selection.get("facilityType") or "TENNIS_SYNTHETIC",
-        "resourceProductID": resource_id,
-        "activityID": selection["activityID"],
-        "duration": duration,
-        "className": selection["className"],
-        "dateTime": start,
-        "dateTimeAsISOString": dt.isoformat(),
-    }
-    return {
-        "id": selection["progId"],
-        "kind": "courts",
-        "className": selection["className"],
-        "activityID": selection["activityID"],
-        "date": day.isoformat(),
-        "time": selection["time"],
-        "weekday": day.weekday(),
-        "dt": dt,
-        "raw": raw,
-    }
 
 
 def target_day(advance_days=7):
@@ -251,14 +221,9 @@ def attempt_pass(client, sels, log, mode, only_date=None, skip=()):
                             unpublished.add((s["id"], date_iso))
                         continue
                 else:
-                    prog = saved_court_program(s, day)
-                    if prog and prog["raw"]["duration"] > 30:
-                        record(log, mode, s, prog, "failed", "court booking slots must be 30 minutes")
-                        continue
-                    if prog is None:
-                        if key not in progs:
-                            progs[key] = client.programs(d, s["kind"], s["who"])
-                        prog = next((p for p in progs[key] if p["id"] == s["progId"]), None)
+                    if key not in progs:
+                        progs[key] = client.programs(d, s["kind"], s["who"])
+                    prog = next((p for p in progs[key] if p["id"] == s["progId"]), None)
                     candidates = [prog] if prog else []
             else:
                 if key not in progs:
@@ -287,11 +252,14 @@ def attempt_pass(client, sels, log, mode, only_date=None, skip=()):
                 if s["kind"] == "courts" and result in {"booked", "already"}:
                     court_booking_done = True
                     break
-    outcomes = {}
+    # A selection failed in this pass only if it has a failure and no success: with several court candidates
+    # a later "failed" must not hide an earlier "booked", and vice versa.
+    results = {}
     for entry in log[start_index:]:
         if entry.get("date") == only_date.isoformat():
-            outcomes[entry.get("selectionId")] = entry.get("result")
-    failed = {(sid, only_date.isoformat()) for sid, result in outcomes.items() if result == "failed"}
+            results.setdefault(entry.get("selectionId"), set()).add(entry.get("result"))
+    done = {"booked", "waitlisted", "already"}
+    failed = {(sid, only_date.isoformat()) for sid, rs in results.items() if "failed" in rs and not (rs & done)}
     return unpublished, failed
 
 

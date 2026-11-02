@@ -64,8 +64,8 @@
       <div class="box">
         <h2 style="margin-top:0">Locked</h2>
         <label>Passphrase<input type="password" id="unlockPass" autocomplete="current-password"></label>
-        <label class="chk"><input type="checkbox" id="remember" checked> Remember on this device</label>
-        <p class="muted">Warning: this stores your GitHub token unencrypted in this browser. Only tick it on a device you own and trust, never on a shared or public computer.</p>
+        <label class="chk"><input type="checkbox" id="remember"> Remember on this device</label>
+        <p class="muted"><strong>Warning:</strong> ticking this stores your GitHub token unencrypted in this browser's local storage, where any script running on this site or anyone with access to the device can read it. It can write to this repository. Only tick it on a device you own and trust, never on a shared or public computer.</p>
         <p><button class="primary" id="unlockBtn">Unlock</button></p>
         <div class="err" id="unlockErr"></div>
         <p class="muted">Forgot it? Create a new fine-grained token on GitHub and set up the vault again (README, "Forgot the passphrase").</p>
@@ -475,15 +475,17 @@
     table.appendChild(tbody);
     list.appendChild(el("div", { class: "court-grid-wrap" }, [table]));
   }
+  // Keep in sync with find_booking() in scripts/ngclient.py: same rule on both sides.
   function nameMatches(have, want) {
     var a = String(have || "").trim().toLowerCase(), b = String(want || "").trim().toLowerCase();
     if (!b) return false;
-    if (a === b || a.indexOf(b + " ") === 0 || b.indexOf(a + " ") === 0) return true;
-    // Match court number from either "court 3" or trailing "C3" (site's booking name format).
+    if (a === b || a.indexOf(b + " ") === 0) return true;
+    // Court names only: match court number from either "court 3" or trailing "C3" (site's booking name format).
+    if (!/\bcourt\b/.test(a) || !/\bcourt\b/.test(b)) return false;
     function courtNum(s) {
       var m = s.match(/\bcourt\s*(\d+)\b/);
       if (m) return m[1];
-      m = s.match(/\bC(\d+)\b/);
+      m = s.match(/\bc(\d+)\b/);
       return m ? m[1] : null;
     }
     var na = courtNum(a), nb = courtNum(b);

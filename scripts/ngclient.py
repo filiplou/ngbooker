@@ -4,35 +4,9 @@ import os
 import re
 import time
 from datetime import datetime
-try:
-    from zoneinfo import ZoneInfo
-    SYD = ZoneInfo("Australia/Sydney")
-except Exception:
-    from datetime import tzinfo, timedelta
+from zoneinfo import ZoneInfo
 
-    class _SydneyTz(tzinfo):
-        def utcoffset(self, dt):
-            if dt is None:
-                return timedelta(hours=10)
-            year = dt.year
-            oct1 = datetime(year, 10, 1)
-            oct_first_sun = 1 + (6 - oct1.weekday()) % 7
-            dst_start = datetime(year, 10, oct_first_sun, 2, 0)
-            apr1 = datetime(year, 4, 1)
-            apr_first_sun = 1 + (6 - apr1.weekday()) % 7
-            dst_end = datetime(year, 4, apr_first_sun, 3, 0)
-            d = dt.replace(tzinfo=None)
-            if d >= dst_start or d < dst_end:
-                return timedelta(hours=11)
-            return timedelta(hours=10)
-
-        def dst(self, dt):
-            return timedelta(hours=1) if self.utcoffset(dt) == timedelta(hours=11) else timedelta(0)
-
-        def tzname(self, dt):
-            return "AEDT" if self.utcoffset(dt) == timedelta(hours=11) else "AEST"
-
-    SYD = _SydneyTz()
+SYD = ZoneInfo("Australia/Sydney")
 
 import requests
 from requests.exceptions import ReadTimeout, ConnectionError as RequestsConnectionError

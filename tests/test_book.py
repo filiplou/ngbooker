@@ -463,13 +463,24 @@ class Tests(unittest.TestCase):
         c.book = mock.Mock(side_effect=[NGError("slot unavailable"), True])
 
         with mock.patch.object(book, "date_of", lambda d: self.day):
-            book.attempt_pass(c, [selection], log, "now")
+            _, failed = book.attempt_pass(c, [selection], log, "now")
 
         self.assertEqual(c.asked, [("courts", "Filip")])
         self.assertEqual([call.args[0]["raw"]["resourceProductID"] for call in c.book.call_args_list],
                          ["RES1", "RES2"])
         self.assertEqual([entry["result"] for entry in log], ["failed", "booked"])
         self.assertTrue(all(entry["className"] == "Any court (30 min)" for entry in log))
+        # An earlier failed candidate must not mark the selection failed when another court was booked.
+        self.assertEqual(failed, set())
+
+    def test_any_court_selection_is_failed_only_when_every_candidate_failed(self):
+        c, selection = self._any_court_selection_with_statuses("Available", "Available")
+        c.book = mock.Mock(side_effect=NGError("slot unavailable"))
+        log = []
+        with mock.patch.object(book, "date_of", lambda d: self.day):
+            _, failed = book.attempt_pass(c, [selection], log, "now")
+        self.assertEqual([entry["result"] for entry in log], ["failed", "failed"])
+        self.assertEqual(failed, {(selection["id"], self.day.isoformat())})
 
     def _any_court_selection_with_statuses(self, *statuses):
         facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
