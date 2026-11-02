@@ -134,6 +134,10 @@
 
     <p><button class="primary" id="saveSettings">Save settings</button></p>
 
+    <h2>When bookings succeeded (last 30 days)</h2>
+    <p class="muted">Time of day (Sydney) each successful booking was made. Shows when the club site is responsive to automatic bookings.</p>
+    <div id="timesChart"></div>
+
     <h2>Change passphrase or replace token</h2>
     <div class="box choose">
       <h2>STEP: CHOOSE A SHORT PASSPHRASE</h2>
@@ -152,7 +156,7 @@
   </section>
 
   </div>
-  <footer>Made with IBM Bob v1.0</footer>
+  <footer>Made with IBM Bob v1.1</footer>
 </main>
 
 <script>
@@ -162,7 +166,7 @@
   var LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   var $ = function (id) { return document.getElementById(id); };
   var KIND_LABEL = { racquet: "Tennis Socials", courts: "Courts", groupex: "Group exercise" };
-  var state = { sessions: [], availableDates: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], my: null,
+  var state = { sessions: [], availableDates: [], updated: "", selections: [], selSha: null, dirty: false, day: null, log: [], times: [], my: null,
                 members: [], kind: "racquet", who: null, allPaused: false, releaseTime: "08:01" };
 
   var CODE_BRANCH = "main";           // workflows are always dispatched from here
@@ -330,7 +334,9 @@
   function loadAll() {
     // members.json is optional: it does not exist until the first refresh after the group exercise update.
     var members = readFile("members.json").then(function (r) { return r.data.members || []; }, function () { return []; });
-    return Promise.all([readFile("sessions.json"), readFile("selections.json"), readFile("bookings-log.json"), readFile("my-bookings.json"), members])
+    // booking-times.json is optional: it does not exist until the first booking run after this feature.
+    var times = readFile("booking-times.json").then(function (r) { return r.data || []; }, function () { return []; });
+    return Promise.all([readFile("sessions.json"), readFile("selections.json"), readFile("bookings-log.json"), readFile("my-bookings.json"), members, times])
       .then(function (r) {
         state.sessions = r[0].data.sessions || []; state.updated = r[0].data.updated || "";
         state.availableDates = r[0].data.availableDates || [];
@@ -339,7 +345,7 @@
         state.releaseTime = r[1].data.releaseTime || "08:01"; state.dirty = false;
         $("autoHeading").textContent = "Selected sessions (booked automatically at " + state.releaseTime + " Sydney time, 7 days ahead)";
         $("releaseTime").value = state.releaseTime;
-        state.log = r[2].data || []; state.my = r[3].data; state.members = r[4];
+        state.log = r[2].data || []; state.my = r[3].data; state.members = r[4]; state.times = r[5];
         if (!state.who || state.members.indexOf(state.who) < 0) state.who = state.members[0] || null;
         render();
         log("Loaded " + state.sessions.length + " sessions and " + state.selections.length + " selections.");
@@ -499,7 +505,57 @@
       return true;
     });
   }
+  // Line chart of successful booking times: x = date made, y = time of day (Sydney), one line per person.
+  // Times are Sydney ISO strings, so the date/time parts are read straight from the text.
+  function renderTimesChart() {
+    var box = $("timesChart"); box.textContent = "";
+    var today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });   // YYYY-MM-DD in Sydney
+    var cutoff = new Date(Date.parse(today + "T00:00:00Z") - 30 * 86400000).toISOString().slice(0, 10);
+    var seen = {}, pts = [];
+    state.times.concat(state.log.filter(function (e) { return e.result === "booked"; })).forEach(function (e) {
+      var k = e.time + "|" + e.selectionId;
+      if (seen[k] || !e.time || e.time.slice(0, 10) < cutoff) return;
+      seen[k] = 1;
+      pts.push({ who: e.who || "?", day: e.time.slice(0, 10), secs: +e.time.slice(11, 13) * 3600 + +e.time.slice(14, 16) * 60 + +e.time.slice(17, 19),
+                 label: e.time.slice(11, 19) + " " + (e.who || "") + " - " + e.className });
+    });
+    if (!pts.length) { box.appendChild(el("p", { class: "muted", text: "No successful bookings in the last 30 days." })); return; }
+    var NS = "http://www.w3.org/2000/svg", W = 640, H = 260, L = 56, R = 20, T = 12, B = 30;
+    function svg(tag, attrs, text) {
+      var n = document.createElementNS(NS, tag);
+      Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+      if (text) n.textContent = text;
+      return n;
+    }
+    function hms(s) { s = Math.round(s); return ("0" + Math.floor(s / 3600)).slice(-2) + ":" + ("0" + Math.floor(s % 3600 / 60)).slice(-2) + ":" + ("0" + s % 60).slice(-2); }
+    var lo = Math.min.apply(null, pts.map(function (p) { return p.secs; })), hi = Math.max.apply(null, pts.map(function (p) { return p.secs; }));
+    lo = Math.floor((lo - 60) / 60) * 60; hi = Math.ceil((hi + 60) / 60) * 60;
+    if (hi - lo < 600) hi = lo + 600;
+    var t0 = Date.parse(cutoff + "T00:00:00Z"), t1 = t0 + 30 * 86400000;
+    function X(day) { return L + (Date.parse(day + "T00:00:00Z") - t0) / (t1 - t0) * (W - L - R); }
+    function Y(s) { return T + (s - lo) / (hi - lo) * (H - T - B); }
+    var s = svg("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Successful booking times over the last 30 days" });
+    for (var i = 0; i <= 4; i++) {
+      var v = lo + (hi - lo) * i / 4;
+      s.appendChild(svg("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: "#e5e7eb" }));
+      s.appendChild(svg("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: "#57606a" }, hms(v)));
+    }
+    for (var d = 0; d <= 30; d += 5) {
+      var day = new Date(t0 + d * 86400000).toISOString().slice(0, 10);
+      s.appendChild(svg("text", { x: X(day), y: H - 10, "text-anchor": "middle", "font-size": 11, fill: "#57606a" }, day.slice(5)));
+    }
+    var colours = ["#3b82d4", "#7c5cd8", "#1a7f37", "#9a6700", "#cf222e"], people = [], legend = el("p", { class: "muted" });
+    pts.forEach(function (p) { if (people.indexOf(p.who) < 0) people.push(p.who); });
+    people.forEach(function (w, n) {
+      var c = colours[n % colours.length], mine = pts.filter(function (p) { return p.who === w; }).sort(function (a, b) { return (a.day + hms(a.secs)) < (b.day + hms(b.secs)) ? -1 : 1; });
+      if (mine.length > 1) s.appendChild(svg("polyline", { points: mine.map(function (p) { return X(p.day) + "," + Y(p.secs); }).join(" "), fill: "none", stroke: c, "stroke-width": 2 }));
+      mine.forEach(function (p) { var dot = svg("circle", { cx: X(p.day), cy: Y(p.secs), r: 4, fill: c }); dot.appendChild(svg("title", {}, p.day + " " + p.label)); s.appendChild(dot); });
+      legend.appendChild(el("span", { text: (n ? "   " : "") + "\u25CF " + w, style: "color:" + c }));
+    });
+    box.appendChild(s); box.appendChild(legend);
+  }
   function render() {
+    renderTimesChart();
     var kinds = $("kinds"); kinds.textContent = "";
     Object.keys(KIND_LABEL).forEach(function (k) {
       var b = el("button", { text: KIND_LABEL[k], class: k === state.kind ? "active" : "" });

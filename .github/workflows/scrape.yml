@@ -3,6 +3,11 @@ name: Refresh session list
 on:
   schedule:
     - cron: '20 20 * * *'   # daily, ~06:20-07:20 Sydney
+  # Refresh the club bookings as soon as a booking run finishes (success or failure),
+  # so the dashboard shows the latest state without pressing "Refresh from club site".
+  workflow_run:
+    workflows: ["Book selected sessions"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:

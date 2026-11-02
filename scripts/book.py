@@ -42,6 +42,21 @@ def say(msg):
     print(f"[{now():%Y-%m-%d %H:%M:%S}] {msg}", flush=True)
 
 
+TIMES_WINDOW_DAYS = 30
+
+
+def update_booking_times(times, log, today=None):
+    """Merge successful bookings from log into times; keep only the last 30 days."""
+    today = today or now()
+    seen = {(e["time"], e["selectionId"]) for e in times}
+    for e in log:
+        if e["result"] == "booked" and (e["time"], e["selectionId"]) not in seen:
+            times.append({k: e[k] for k in ("time", "who", "className", "date", "slot", "selectionId")})
+            seen.add((e["time"], e["selectionId"]))
+    cutoff = today - timedelta(days=TIMES_WINDOW_DAYS)
+    return [e for e in times if datetime.fromisoformat(e["time"]) >= cutoff]
+
+
 def already_done(log, sel_id, date_iso):
     return any(e["selectionId"] == sel_id and e["date"] == date_iso and e["result"] in DONE for e in log)
 
@@ -402,6 +417,7 @@ def main():
                 time.sleep(args.poll)
     finally:
         save("bookings-log.json", log[-300:])
+        save("booking-times.json", update_booking_times(load("booking-times.json", []), log))
     return 0
 
 
