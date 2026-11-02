@@ -262,5 +262,29 @@
     "slot": "09:10",
     "result": "already",
     "message": "found in My Bookings"
+  },
+  {
+    "time": "2026-11-03T08:11:49+11:00",
+    "mode": "scheduled",
+    "selectionId": "racquet|Filip|Social Doubles C1-2|1|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles C1-2",
+    "date": "2026-11-10",
+    "slot": "19:30",
+    "result": "booked",
+    "message": ""
+  },
+  {
+    "time": "2026-11-03T08:12:03+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|Sculpt Class|1|08:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Class",
+    "date": "2026-11-10",
+    "slot": "08:30",
+    "result": "booked",
+    "message": ""
   }
 ]
