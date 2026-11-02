@@ -1,27 +1,27 @@
 {
-  "updated": "2026-11-02T10:41:50+11:00",
+  "updated": "2026-11-03T09:49:40+11:00",
   "bookings": [
     {
-      "bookingID": 20957886,
-      "displayDate": "Tuesday 3 November",
-      "displayTime": "9:00 AM",
-      "className": "Vinyasa Yoga - Studio 2",
-      "duration": "55 mins",
+      "bookingID": 21084189,
+      "displayDate": "Thursday 5 November",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles B2 C1-2 C1",
+      "duration": "60 mins",
       "canCancelBooking": true,
-      "isOnWaitList": false,
+      "isOnWaitList": true,
       "firstName": null,
-      "who": "Theresa"
+      "who": "Filip"
     },
     {
-      "bookingID": 20957887,
-      "displayDate": "Tuesday 3 November",
-      "displayTime": "10:00 AM",
-      "className": "Pilates",
-      "duration": "55 mins",
+      "bookingID": 21084038,
+      "displayDate": "Tuesday 10 November",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles C1-2 C1",
+      "duration": "60 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
       "firstName": null,
-      "who": "Theresa"
+      "who": "Filip"
     },
     {
       "bookingID": 20958216,
@@ -51,6 +51,17 @@
       "displayTime": "9:10 AM",
       "className": "Sculpt Booty Band",
       "duration": "45 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20959089,
+      "displayDate": "Tuesday 10 November",
+      "displayTime": "8:30 AM",
+      "className": "Sculpt Class",
+      "duration": "55 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
       "firstName": null,
