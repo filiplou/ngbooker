@@ -61,3 +61,11 @@
   - [x] Correct retry count (5, not 3) in `Project.md`; document final-state and concurrency behaviour
   - [x] Verify the complete suite (49 tests passing)
 
+- [x] Remaining review-findings fixes (issue.md, README excluded)
+  - [x] Court booking no longer re-checks live availability (documented); removed dead saved_court_program$nl  - [x] Failure is judged per selection: failed only if no candidate booked/waitlisted/already
+  - [x] Dashboard 
+ameMatches aligned with ind_booking(); token Remember unticked by default with stronger warning
+  - [x] Use zoneinfo for Sydney time; pin GitHub Actions to commit SHAs
+  - [x] Verify the complete suite (52 tests passing)
+
+- [x] Settings chart plots only automatic (scheduled) bookings; booking-times.json entries now carry `mode`

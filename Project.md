@@ -46,7 +46,7 @@ for that run. This is a maximum of one confirmed court booking per run.
 - *Current bookings on the club site* grouped by member, each with a Booked / Waitlisted tag, refreshed by the scrape workflow.
 - *Booking history* (bottom of the page) — last 10 booking attempts with result (`booked`, `waitlisted`, `already`, `failed`, `not-published`, `skipped`).
 
-**⚙ Settings** — configure the release time (default `08:01`), see a line chart of when successful bookings were made (time of day per person over the last 30 days; stored in `booking-times.json`, entries older than 30 days are dropped on each booking run), change the passphrase or GitHub token, lock this device.
+**⚙ Settings** — configure the release time (default `08:01`), see a line chart of when successful automatic (scheduled) bookings were made (time of day per person over the last 30 days; manual "Book now" bookings are excluded; stored in `booking-times.json` with a `mode` field, entries older than 30 days or not provably scheduled are dropped on each booking run), change the passphrase or GitHub token, lock this device.
 
 ## Members and booking kinds
 
@@ -176,6 +176,10 @@ recording a failure, so a booking that landed server-side is not logged as faile
 - The booked/waitlisted result is taken from the site's My Bookings (`isOnWaitList`) after booking. The site may append the court to the name (for example `Social Doubles C1-2` becomes `Social Doubles C1-2 C1`), so a booking matches if its name equals the selection name or starts with it followed by a space.
 - **Book now (test)** triggers `book.yml` in `now` mode for that one selection. It books the nearest future date of the selected weekday that the club currently makes available, regardless of what weekday the test is run. Scheduled bookings continue to target the day exactly 7 days ahead.
 - Silver members only see 7 days ahead; gold-only days are skipped automatically.
+- Courts are not re-checked against live availability at book time: ttempt_pass only offers slots that were Available in a fresh read, and courts have no waiting list. Classes are still re-checked.
+- A selection with several court candidates counts as failed (and is retried) only if every candidate failed; any booked/waitlisted/already result for it counts as success.
+- The booking name matching in the dashboard (
+ameMatches in index.html) and in ind_booking() (scripts/ngclient.py) must stay in sync.
 
 ## Security notes
 
@@ -188,6 +192,8 @@ recording a failure, so a booking that landed server-side is not logged as faile
 - If a phone is lost: revoke the dashboard token on GitHub and redo the vault setup.
 - Never put the token, member number or password in any file or in chat.
 - Check the club's terms allow automated booking.
+- *Remember on this device* is unticked by default because it stores the token unencrypted in the browser's local storage.
+- Workflow actions (ctions/checkout, ctions/setup-python) are pinned to full commit SHAs, so bump them manually (the tag is in the trailing comment).
 
 ## Tests
 

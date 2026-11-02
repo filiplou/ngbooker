@@ -258,9 +258,9 @@ class Tests(unittest.TestCase):
     def test_booking_times_keep_only_booked_entries_from_last_30_days(self):
         today = datetime(2026, 11, 3, 9, 0, tzinfo=SYD)
 
-        def entry(time, result="booked", sel="a"):
+        def entry(time, result="booked", sel="a", mode="scheduled"):
             return {"time": time, "who": "Filip", "className": "Social", "date": "2026-11-10",
-                    "slot": "19:30", "selectionId": sel, "result": result, "message": ""}
+                    "slot": "19:30", "selectionId": sel, "result": result, "message": "", "mode": mode}
 
         times = [entry("2026-10-01T08:10:00+10:00"), entry("2026-10-10T08:10:00+11:00")]
         log = [entry("2026-11-03T08:11:49+11:00"), entry("2026-11-03T08:11:50+11:00", "failed", "b"),
@@ -268,6 +268,24 @@ class Tests(unittest.TestCase):
         out = book.update_booking_times(times, log, today)
         self.assertEqual([e["time"] for e in out], ["2026-10-10T08:10:00+11:00", "2026-11-03T08:11:49+11:00"])
         self.assertNotIn("result", out[1])
+
+    def test_booking_times_exclude_manual_bookings(self):
+        today = datetime(2026, 11, 3, 9, 0, tzinfo=SYD)
+
+        def entry(time, mode, sel):
+            return {"time": time, "who": "Filip", "className": "Social", "date": "2026-11-10",
+                    "slot": "19:30", "selectionId": sel, "result": "booked", "message": "", "mode": mode}
+
+        # Saved before the mode field existed: mode is recovered from the log when possible, else dropped.
+        legacy_manual = {k: v for k, v in entry("2026-10-20T10:00:00+11:00", "now", "m").items()
+                         if k not in ("mode", "result", "message")}
+        legacy_auto = {k: v for k, v in entry("2026-10-21T08:10:00+11:00", "scheduled", "s").items()
+                       if k not in ("mode", "result", "message")}
+        legacy_unknown = dict(legacy_auto, time="2026-10-22T08:10:00+11:00", selectionId="u")
+        log = [entry("2026-10-20T10:00:00+11:00", "now", "m"), entry("2026-10-21T08:10:00+11:00", "scheduled", "s"),
+               entry("2026-11-03T09:00:00+11:00", "now", "n"), entry("2026-11-03T08:11:49+11:00", "scheduled", "a")]
+        out = book.update_booking_times([legacy_manual, legacy_auto, legacy_unknown], log, today)
+        self.assertEqual([e["selectionId"] for e in out], ["s", "a"])
 
     def test_booking_calls_use_60s_timeout(self):
         c = ngclient.NGClient("testuser", "testpw")
@@ -463,13 +481,24 @@ class Tests(unittest.TestCase):
         c.book = mock.Mock(side_effect=[NGError("slot unavailable"), True])
 
         with mock.patch.object(book, "date_of", lambda d: self.day):
-            book.attempt_pass(c, [selection], log, "now")
+            _, failed = book.attempt_pass(c, [selection], log, "now")
 
         self.assertEqual(c.asked, [("courts", "Filip")])
         self.assertEqual([call.args[0]["raw"]["resourceProductID"] for call in c.book.call_args_list],
                          ["RES1", "RES2"])
         self.assertEqual([entry["result"] for entry in log], ["failed", "booked"])
         self.assertTrue(all(entry["className"] == "Any court (30 min)" for entry in log))
+        # An earlier failed candidate must not mark the selection failed when another court was booked.
+        self.assertEqual(failed, set())
+
+    def test_any_court_selection_is_failed_only_when_every_candidate_failed(self):
+        c, selection = self._any_court_selection_with_statuses("Available", "Available")
+        c.book = mock.Mock(side_effect=NGError("slot unavailable"))
+        log = []
+        with mock.patch.object(book, "date_of", lambda d: self.day):
+            _, failed = book.attempt_pass(c, [selection], log, "now")
+        self.assertEqual([entry["result"] for entry in log], ["failed", "failed"])
+        self.assertEqual(failed, {(selection["id"], self.day.isoformat())})
 
     def _any_court_selection_with_statuses(self, *statuses):
         facility = {"facilityName": "SYNTH COURTS", "facilityType": "TENNIS_SYNTHETIC"}
