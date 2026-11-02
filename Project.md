@@ -46,7 +46,7 @@ for that run. This is a maximum of one confirmed court booking per run.
 - *Current bookings on the club site* grouped by member, each with a Booked / Waitlisted tag, refreshed by the scrape workflow.
 - *Booking history* (bottom of the page) — last 10 booking attempts with result (`booked`, `waitlisted`, `already`, `failed`, `not-published`, `skipped`).
 
-**⚙ Settings** — configure the release time (default `08:01`), see a line chart of when successful bookings were made (time of day per person over the last 30 days; stored in `booking-times.json`, entries older than 30 days are dropped on each booking run), change the passphrase or GitHub token, lock this device.
+**⚙ Settings** — configure the release time (default `08:01`), see a line chart of when successful automatic (scheduled) bookings were made (time of day per person over the last 30 days; manual "Book now" bookings are excluded; stored in `booking-times.json` with a `mode` field, entries older than 30 days or not provably scheduled are dropped on each booking run), change the passphrase or GitHub token, lock this device.
 
 ## Members and booking kinds
 

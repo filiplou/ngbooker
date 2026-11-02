@@ -46,15 +46,20 @@ TIMES_WINDOW_DAYS = 30
 
 
 def update_booking_times(times, log, today=None):
-    """Merge successful bookings from log into times; keep only the last 30 days."""
+    """Merge successful automatic (scheduled) bookings from log into times; keep only the last 30 days.
+
+    Manual "now" bookings are not plotted. Older entries saved without a mode take it from the matching log
+    entry; if that is no longer in the log they are dropped, since they cannot be shown to be automatic."""
     today = today or now()
+    modes = {(e["time"], e["selectionId"]): e.get("mode") for e in log}
+    times = [dict(e, mode=e.get("mode") or modes.get((e["time"], e["selectionId"]))) for e in times]
     seen = {(e["time"], e["selectionId"]) for e in times}
     for e in log:
         if e["result"] == "booked" and (e["time"], e["selectionId"]) not in seen:
-            times.append({k: e[k] for k in ("time", "who", "className", "date", "slot", "selectionId")})
+            times.append({k: e.get(k) for k in ("time", "who", "className", "date", "slot", "selectionId", "mode")})
             seen.add((e["time"], e["selectionId"]))
     cutoff = today - timedelta(days=TIMES_WINDOW_DAYS)
-    return [e for e in times if datetime.fromisoformat(e["time"]) >= cutoff]
+    return [e for e in times if e.get("mode") == "scheduled" and datetime.fromisoformat(e["time"]) >= cutoff]
 
 
 def already_done(log, sel_id, date_iso):

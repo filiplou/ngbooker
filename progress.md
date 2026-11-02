@@ -66,4 +66,6 @@
   - [x] Dashboard 
 ameMatches aligned with ind_booking(); token Remember unticked by default with stronger warning
   - [x] Use zoneinfo for Sydney time; pin GitHub Actions to commit SHAs
-  - [x] Verify the complete suite (51 tests passing)
+  - [x] Verify the complete suite (52 tests passing)
+
+- [x] Settings chart plots only automatic (scheduled) bookings; booking-times.json entries now carry `mode`

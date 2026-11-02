@@ -135,7 +135,7 @@
     <p><button class="primary" id="saveSettings">Save settings</button></p>
 
     <h2>When bookings succeeded (last 30 days)</h2>
-    <p class="muted">Time of day (Sydney) each successful booking was made. Shows when the club site is responsive to automatic bookings.</p>
+    <p class="muted">Time of day (Sydney) each successful automatic booking was made. Manual "Book now" bookings are not shown. Shows when the club site is responsive to automatic bookings.</p>
     <div id="timesChart"></div>
 
     <h2>Change passphrase or replace token</h2>
@@ -514,14 +514,15 @@
     var today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });   // YYYY-MM-DD in Sydney
     var cutoff = new Date(Date.parse(today + "T00:00:00Z") - 30 * 86400000).toISOString().slice(0, 10);
     var seen = {}, pts = [];
+    // Automatic (scheduled) bookings only; manual "Book now" runs are not plotted.
     state.times.concat(state.log.filter(function (e) { return e.result === "booked"; })).forEach(function (e) {
       var k = e.time + "|" + e.selectionId;
-      if (seen[k] || !e.time || e.time.slice(0, 10) < cutoff) return;
+      if (seen[k] || !e.time || e.mode !== "scheduled" || e.time.slice(0, 10) < cutoff) return;
       seen[k] = 1;
       pts.push({ who: e.who || "?", day: e.time.slice(0, 10), secs: +e.time.slice(11, 13) * 3600 + +e.time.slice(14, 16) * 60 + +e.time.slice(17, 19),
                  label: e.time.slice(11, 19) + " " + (e.who || "") + " - " + e.className });
     });
-    if (!pts.length) { box.appendChild(el("p", { class: "muted", text: "No successful bookings in the last 30 days." })); return; }
+    if (!pts.length) { box.appendChild(el("p", { class: "muted", text: "No successful automatic bookings in the last 30 days." })); return; }
     var NS = "http://www.w3.org/2000/svg", W = 640, H = 260, L = 56, R = 20, T = 12, B = 30;
     function svg(tag, attrs, text) {
       var n = document.createElementNS(NS, tag);
@@ -536,7 +537,7 @@
     var t0 = Date.parse(cutoff + "T00:00:00Z"), t1 = t0 + 30 * 86400000;
     function X(day) { return L + (Date.parse(day + "T00:00:00Z") - t0) / (t1 - t0) * (W - L - R); }
     function Y(s) { return T + (s - lo) / (hi - lo) * (H - T - B); }
-    var s = svg("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Successful booking times over the last 30 days" });
+    var s = svg("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", role: "img", "aria-label": "Successful automatic booking times over the last 30 days" });
     for (var i = 0; i <= 4; i++) {
       var v = lo + (hi - lo) * i / 4;
       s.appendChild(svg("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: "#e5e7eb" }));
