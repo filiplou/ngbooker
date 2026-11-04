@@ -1,0 +1,38 @@
+[
+  {
+    "time": "2026-11-03T08:11:49+11:00",
+    "who": "Filip",
+    "className": "Social Doubles C1-2",
+    "date": "2026-11-10",
+    "slot": "19:30",
+    "selectionId": "racquet|Filip|Social Doubles C1-2|1|19:30",
+    "mode": "scheduled"
+  },
+  {
+    "time": "2026-11-03T08:12:03+11:00",
+    "who": "Theresa",
+    "className": "Sculpt Class",
+    "date": "2026-11-10",
+    "slot": "08:30",
+    "selectionId": "groupex|Theresa|Sculpt Class|1|08:30",
+    "mode": "scheduled"
+  },
+  {
+    "time": "2026-11-05T08:24:55+11:00",
+    "who": "Filip",
+    "className": "Social Doubles B2 C1-2",
+    "date": "2026-11-12",
+    "slot": "19:30",
+    "selectionId": "racquet|Filip|Social Doubles B2 C1-2|3|19:30",
+    "mode": "scheduled"
+  },
+  {
+    "time": "2026-11-05T08:25:03+11:00",
+    "who": "Theresa",
+    "className": "BodyPump®",
+    "date": "2026-11-12",
+    "slot": "09:30",
+    "selectionId": "groupex|Theresa|BodyPump®|3|09:30",
+    "mode": "scheduled"
+  }
+]

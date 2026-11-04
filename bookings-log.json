@@ -286,5 +286,29 @@
     "slot": "08:30",
     "result": "booked",
     "message": ""
+  },
+  {
+    "time": "2026-11-05T08:24:55+11:00",
+    "mode": "scheduled",
+    "selectionId": "racquet|Filip|Social Doubles B2 C1-2|3|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles B2 C1-2",
+    "date": "2026-11-12",
+    "slot": "19:30",
+    "result": "booked",
+    "message": ""
+  },
+  {
+    "time": "2026-11-05T08:25:03+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|BodyPump®|3|09:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "BodyPump®",
+    "date": "2026-11-12",
+    "slot": "09:30",
+    "result": "booked",
+    "message": ""
   }
 ]
