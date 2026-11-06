@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-06T07:56:04+11:00",
+  "updated": "2026-11-06T11:59:33+11:00",
   "bookings": [
     {
       "bookingID": 21084038,
@@ -22,17 +22,6 @@
       "isOnWaitList": false,
       "firstName": null,
       "who": "Filip"
-    },
-    {
-      "bookingID": 21087685,
-      "displayDate": "Friday 6 November",
-      "displayTime": "8:30 AM",
-      "className": "Cycle/tabata Studio 1 & 3",
-      "duration": "55 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Theresa"
     },
     {
       "bookingID": 21125952,
@@ -61,6 +50,17 @@
       "displayDate": "Thursday 12 November",
       "displayTime": "9:30 AM",
       "className": "BodyPump®",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 21087686,
+      "displayDate": "Friday 13 November",
+      "displayTime": "8:30 AM",
+      "className": "Cycle/tabata Studio 1 & 3",
       "duration": "55 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
