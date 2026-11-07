@@ -34,5 +34,14 @@
     "slot": "09:30",
     "selectionId": "groupex|Theresa|BodyPump®|3|09:30",
     "mode": "scheduled"
+  },
+  {
+    "time": "2026-11-08T08:01:40+11:00",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-11-15",
+    "slot": "16:30",
+    "selectionId": "courts|Filip|Any court (30 min)|6|16:30",
+    "mode": "scheduled"
   }
 ]
