@@ -43,5 +43,14 @@
     "slot": "16:30",
     "selectionId": "courts|Filip|Any court (30 min)|6|16:30",
     "mode": "scheduled"
+  },
+  {
+    "time": "2026-11-09T08:11:02+11:00",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band",
+    "date": "2026-11-16",
+    "slot": "09:10",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
+    "mode": "scheduled"
   }
 ]

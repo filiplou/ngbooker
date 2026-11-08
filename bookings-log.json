@@ -322,5 +322,29 @@
     "slot": "16:30",
     "result": "booked",
     "message": ""
+  },
+  {
+    "time": "2026-11-09T08:04:08+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band",
+    "date": "2026-11-16",
+    "slot": "09:10",
+    "result": "failed",
+    "message": "Request timed out: /CheckAvailability"
+  },
+  {
+    "time": "2026-11-09T08:11:02+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band",
+    "date": "2026-11-16",
+    "slot": "09:10",
+    "result": "booked",
+    "message": ""
   }
 ]
