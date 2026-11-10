@@ -1,17 +1,6 @@
 {
-  "updated": "2026-11-10T08:32:31+11:00",
+  "updated": "2026-11-10T13:47:51+11:00",
   "bookings": [
-    {
-      "bookingID": 21084038,
-      "displayDate": "Tuesday 10 November",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
     {
       "bookingID": 21084190,
       "displayDate": "Thursday 12 November",
