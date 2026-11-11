@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-12T10:43:32+11:00",
+  "updated": "2026-11-12T10:44:54+11:00",
   "bookings": [
     {
       "bookingID": 21084190,
@@ -28,6 +28,17 @@
       "displayDate": "Tuesday 17 November",
       "displayTime": "7:30 PM",
       "className": "Social Doubles C1-2 C1",
+      "duration": "60 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Filip"
+    },
+    {
+      "bookingID": 21084191,
+      "displayDate": "Thursday 19 November",
+      "displayTime": "7:30 PM",
+      "className": "Social Doubles B2 C1-2 C1",
       "duration": "60 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
@@ -64,6 +75,17 @@
       "duration": "55 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20960334,
+      "displayDate": "Thursday 19 November",
+      "displayTime": "9:30 AM",
+      "className": "BodyPump®",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": true,
       "firstName": null,
       "who": "Theresa"
     }

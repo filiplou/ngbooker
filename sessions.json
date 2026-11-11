@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-12T10:43:32+11:00",
+  "updated": "2026-11-12T10:44:54+11:00",
   "availableDates": [
     "2026-11-13",
     "2026-11-14",
@@ -3339,7 +3339,7 @@
         "timeDisplayString": "9:30 AM",
         "instructorName": "Melinda",
         "duration": 55,
-        "spacesAvailable": -5,
+        "spacesAvailable": -6,
         "spacesAvailableString": "Waiting List",
         "spacesAvailableDetailString": "CLASS IS FULLY BOOKED",
         "bookButtonDisplayString": "Book into waiting list",
@@ -3928,9 +3928,9 @@
         "timeDisplayString": "7:30 PM",
         "instructorName": "Tomas Urtubey",
         "duration": 60,
-        "spacesAvailable": 2,
-        "spacesAvailableString": "2 remaining",
-        "spacesAvailableDetailString": "2 spaces remaining",
+        "spacesAvailable": 1,
+        "spacesAvailableString": "1 remaining",
+        "spacesAvailableDetailString": "1 spaces remaining",
         "bookButtonDisplayString": "Book",
         "hideStages": false,
         "classDescription": "",
