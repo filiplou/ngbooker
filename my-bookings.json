@@ -1,17 +1,6 @@
 {
-  "updated": "2026-11-12T12:56:30+11:00",
+  "updated": "2026-11-13T07:56:02+11:00",
   "bookings": [
-    {
-      "bookingID": 21084190,
-      "displayDate": "Thursday 12 November",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles B2 C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
     {
       "bookingID": 21148045,
       "displayDate": "Sunday 15 November",
@@ -72,6 +61,17 @@
       "displayDate": "Tuesday 17 November",
       "displayTime": "8:30 AM",
       "className": "Sculpt Booty Band Class",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20960300,
+      "displayDate": "Thursday 19 November",
+      "displayTime": "8:30 AM",
+      "className": "Sculpt Booty Band",
       "duration": "55 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
