@@ -1,39 +1,6 @@
 {
-  "updated": "2026-11-15T10:59:09+11:00",
+  "updated": "2026-11-16T08:09:51+11:00",
   "bookings": [
-    {
-      "bookingID": 21084039,
-      "displayDate": "Tuesday 17 November",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
-    {
-      "bookingID": 21084191,
-      "displayDate": "Thursday 19 November",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles B2 C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
-    {
-      "bookingID": 21149358,
-      "displayDate": "Sunday 22 November",
-      "displayTime": "2:30 PM",
-      "className": "Tennis Court Hire 0.5 Hr C1",
-      "duration": "30 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
     {
       "bookingID": 21125953,
       "displayDate": "Monday 16 November",
@@ -84,6 +51,17 @@
       "displayTime": "8:30 AM",
       "className": "Cycle/tabata Studio 1 & 3",
       "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 21125954,
+      "displayDate": "Monday 23 November",
+      "displayTime": "9:10 AM",
+      "className": "Sculpt Booty Band",
+      "duration": "45 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
       "firstName": null,
