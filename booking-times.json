@@ -61,5 +61,14 @@
     "slot": "19:30",
     "selectionId": "racquet|Filip|Social Doubles C1-2|1|19:30",
     "mode": "scheduled"
+  },
+  {
+    "time": "2026-11-16T08:04:14+11:00",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band",
+    "date": "2026-11-23",
+    "slot": "09:10",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
+    "mode": "scheduled"
   }
 ]

@@ -442,5 +442,17 @@
     "slot": "17:00",
     "result": "not-published",
     "message": "session not found before the polling deadline"
+  },
+  {
+    "time": "2026-11-16T08:04:14+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band",
+    "date": "2026-11-23",
+    "slot": "09:10",
+    "result": "booked",
+    "message": "Request timed out: /MakeBooking"
   }
 ]
