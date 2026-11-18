@@ -55,6 +55,18 @@ def _log_path(path):
     return re.sub(r"(/GetMemberBookings/)[^/?#]+", r"\1{memberID}", path)
 
 
+def _snippet(text, limit=200):
+    """Short, readable excerpt of a response body for error messages. The booking log is public,
+    so markup is stripped and anything that looks like an email or a member/phone number is masked."""
+    text = text if isinstance(text, str) else ""
+    text = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"[\w.+-]+@[\w-]+\.[\w.-]+", "[email]", text)
+    text = re.sub(r"\d{5,}", "[number]", text)
+    text = " ".join(text.split())
+    return text[:limit] + ("..." if len(text) > limit else "")
+
+
 def sanitize(obj):
     """Drop personal keys (member ids, emails...) before anything is written to the public repo."""
     if isinstance(obj, dict):
@@ -226,13 +238,26 @@ class NGClient:
             try:
                 j = r.json()
                 if isinstance(j, dict):
-                    msg = j.get("message") or j.get("Message")
+                    msg = j.get("message") or j.get("Message") or j.get("error_description")
+                elif isinstance(j, str):
+                    msg = j
             except ValueError:
                 pass
+            # Not JSON (an HTML error page, a proxy message...): keep the start of the body so the
+            # log shows what the site actually said instead of a bare "request failed".
+            msg = msg or _snippet(getattr(r, "text", ""))
             print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} -> HTTP {r.status_code} in {elapsed:.1f}s", flush=True)
-            raise NGError(f"HTTP {r.status_code} {method} {path}: {msg or 'request failed'}")
+            raise NGError(f"HTTP {r.status_code} {method} {_log_path(path)}: {msg or 'request failed'}")
         print(f"[{datetime.now(SYD):%H:%M:%S}] [api] {method} {_log_path(path)} -> {r.status_code} in {elapsed:.1f}s", flush=True)
-        return r.json() if r.content else None
+        if not r.content:
+            return None
+        try:
+            return r.json()
+        except ValueError:
+            # e.g. a maintenance page served with HTTP 200. Raise NGError so callers' retry/polling
+            # logic handles it instead of the whole run crashing with a JSONDecodeError.
+            raise NGError(f"Unexpected non-JSON response from {method} {_log_path(path)} "
+                          f"(HTTP {r.status_code}): {_snippet(getattr(r, 'text', '')) or 'empty body'}")
 
     def login(self, retries=3, retry_delay=10):
         """Login with retries to handle transient site timeouts."""
@@ -252,8 +277,9 @@ class NGClient:
             if r.status_code != 200:
                 try:
                     msg = r.json().get("error_description")
-                except ValueError:
+                except (ValueError, AttributeError):
                     msg = None
+                msg = msg or _snippet(getattr(r, "text", ""))
                 err = NGError(f"Login failed (HTTP {r.status_code}): {msg or 'unknown error'}")
                 if r.status_code == 429 or r.status_code >= 500:
                     # Transient server-side failure: retry like a timeout. Other 4xx (bad credentials) fail fast.
@@ -262,9 +288,19 @@ class NGClient:
                         time.sleep(retry_delay)
                     continue
                 raise err
-            self.s.headers["Authorization"] = "Bearer " + r.json()["access_token"]
+            try:
+                token = r.json()["access_token"]
+            except (ValueError, KeyError, TypeError):
+                last_err = NGError(f"Login returned no access token (attempt {attempt}/{retries}): "
+                                   f"{_snippet(getattr(r, 'text', '')) or 'empty body'}")
+                if attempt < retries:
+                    time.sleep(retry_delay)
+                continue
+            self.s.headers["Authorization"] = "Bearer " + token
             try:
                 graph = self._call("GET", "/GetMemberDetailGraph")
+                if not isinstance(graph, dict) or not graph.get("members"):
+                    raise NGError("GetMemberDetailGraph returned no members")
             except NGError as e:
                 last_err = NGError(f"GetMemberDetailGraph failed (attempt {attempt}/{retries}): {e}")
                 if attempt < retries:
@@ -322,7 +358,9 @@ class NGClient:
             self._facilities_cache[site_id] = (res or {}).get("facilities") or []
         return self._facilities_cache[site_id]
 
-    def courts(self, d, who=None):
+    def courts(self, d, who=None, duration=None):
+        """All court slots for a day. `duration` (minutes) limits the query to that length only:
+        bookings only ever need 30-minute slots, and every duration costs one request per facility."""
         m = self.member(who)
         facs = self.facilities(who)
         day_date = date_of(d)
@@ -338,9 +376,11 @@ class NGClient:
             durs = fac.get("durations") or []
             if not durs:
                 continue
-            for duration in durs:  # query every duration (30, 60, 90 min)
-                activity_id = duration.get("activityID")
+            for dur in durs:  # query every duration (30, 60, 90 min) unless one was asked for
+                activity_id = dur.get("activityID")
                 if not activity_id:
+                    continue
+                if duration is not None and dur.get("duration") != duration:
                     continue
                 data = {
                     "memberID": m["memberID"],
@@ -349,9 +389,10 @@ class NGClient:
                     "siteID": m["siteID"],
                 }
                 try:
-                    slots_data = self._call("POST", "/GetSlotAvailabilityForActivity", json=data)
+                    # Read-only despite being a POST, so safe to retry.
+                    slots_data = self._call("POST", "/GetSlotAvailabilityForActivity", retries=READ_RETRIES, json=data)
                 except NGError as e:
-                    duration_name = duration.get("durationName") or duration.get("duration")
+                    duration_name = dur.get("durationName") or dur.get("duration")
                     raise NGError(
                         f"{e} (facility={fac.get('facilityName')!r}, duration={duration_name!r}, "
                         f"activityID={activity_id!r}, date={d.get('dateAsISOString')!r})"
@@ -369,16 +410,16 @@ class NGClient:
                         if isinstance(v, list):
                             raw_slots.extend(v)
                 for slot in raw_slots:
-                    court = normalise_court_slot(slot, fac, duration, day_date, kind="courts")
-                    key = (court["className"], court["time"], duration.get("duration"))
+                    court = normalise_court_slot(slot, fac, dur, day_date, kind="courts")
+                    key = (court["className"], court["time"], dur.get("duration"))
                     if key not in seen_ids:
                         seen_ids.add(key)
                         all_courts.append(court)
         return all_courts
 
-    def programs(self, d, kind=DEFAULT_KIND, who=None):
+    def programs(self, d, kind=DEFAULT_KIND, who=None, duration=None):
         if kind == "courts":
-            return self.courts(d, who=who)
+            return self.courts(d, who=who, duration=duration)
         m = self.member(who)
         data = {"dateAsISOString": d["dateAsISOString"], "siteID": m["siteID"], "memberID": m["memberID"]}
         return [normalise_program(p, kind) for p in (self._call("POST", KINDS[kind], retries=READ_RETRIES, json=data) or [])]
