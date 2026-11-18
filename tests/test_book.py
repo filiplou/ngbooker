@@ -35,7 +35,7 @@ class FakeClient:
         self.asked = getattr(self, "asked", []) + [(kind, who)]
         return [p for p in self.progs if p.get("kind", "racquet") == kind]
 
-    def check(self, prog, d, who=None):
+    def check(self, prog, d, who=None, **kw):
         return {"isWaitingList": self.waitlist}
 
     def book(self, prog, who=None):
@@ -380,7 +380,7 @@ class Tests(unittest.TestCase):
         c.my_bookings = lambda who=None: []
         with mock.patch.object(book, "date_of", lambda d: self.day):
             book.attempt_pass(c, both, log, "now")
-        self.assertEqual(c.booked_for, ["Filip", "Annika"])
+        self.assertCountEqual(c.booked_for, ["Filip", "Annika"])  # booked in parallel: order not fixed
 
     def test_first_name_keys_are_unique(self):
         self.assertEqual(first_name_keys(["Filip", "Annika Jo", None, "Filip"]), ["Filip", "Annika", "Member3", "Filip4"])

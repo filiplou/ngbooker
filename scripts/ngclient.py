@@ -327,6 +327,16 @@ class NGClient:
         self.site_id = self.members[0]["siteID"]
         self.is_gold = self.members[0]["isGold"]
 
+    def clone(self):
+        """A logged-in copy with its own HTTP session, so bookings can run in parallel threads without
+        sharing one requests.Session. Shares the token and member details; no extra login."""
+        c = NGClient(self.username, self.password)
+        c.s.headers.update(self.s.headers)
+        c.members, c.member_id, c.site_id, c.is_gold = self.members, self.member_id, self.site_id, self.is_gold
+        if hasattr(self, "_facilities_cache"):
+            c._facilities_cache = self._facilities_cache
+        return c
+
     def member(self, who=None):
         if not who:
             return self.members[0]
@@ -424,7 +434,7 @@ class NGClient:
         data = {"dateAsISOString": d["dateAsISOString"], "siteID": m["siteID"], "memberID": m["memberID"]}
         return [normalise_program(p, kind) for p in (self._call("POST", KINDS[kind], retries=READ_RETRIES, json=data) or [])]
 
-    def check(self, program, d, who=None):
+    def check(self, program, d, who=None, timeout=30, retries=READ_RETRIES):
         if program.get("kind") == "courts":
             current = next(
                 (p for p in self.courts(d, who) if p["id"] == program["id"]),
@@ -450,7 +460,7 @@ class NGClient:
             data["dateAsISOString"] = raw.get("dateTimeAsISOString") or d["dateAsISOString"]
             data["bookingsAvailableAfter"] = 8
             data["ResourceProductID"] = raw.get("resourceProductID")
-        return self._call("POST", "/CheckAvailability", retries=READ_RETRIES, json=data)
+        return self._call("POST", "/CheckAvailability", timeout=timeout, retries=retries, json=data)
 
     def book(self, program, who=None):
         m = self.member(who)

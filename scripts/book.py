@@ -16,10 +16,12 @@ import calendar
 import difflib
 import json
 import os
+import queue
 import re
 import sys
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -34,6 +36,13 @@ AMBIGUOUS_RETRY_DELAYS = (0, 5, 10, 20, 30)
 # Poll every --poll seconds for this long after release, then back off to SLOW_POLL to go easy on the site.
 FAST_POLL_SECONDS = 120
 SLOW_POLL = 15.0
+# CheckAvailability only tells a booking apart from a waiting-list place (MakeBooking does either), so on the
+# critical path it gets one short attempt instead of 3 x 30s.
+CHECK_TIMEOUT = 10
+# Independent groups of selections (see booking_units) are booked at the same time, up to this many at once.
+MAX_PARALLEL = 4
+# Read My Bookings / court facilities before the release only when there is comfortably time to (3 x 30s reads).
+PREFETCH_MIN_LEAD_SECONDS = 120
 
 
 def load(name, default):
@@ -98,9 +107,9 @@ def record(log, mode, sel, prog, result, message=""):
     say(f"[{entry['who']}] {sel['className']} {entry['date']} {sel['time']}: {result} {message}".strip())
 
 
-def manual_target_date(client, selection, after_date):
+def manual_target_date(client, selection, after_date, dates=None):
     matching_dates = []
-    for d in client.dates():
+    for d in (client.dates() if dates is None else dates):
         day = date_of(d)
         if day > after_date and day.weekday() == selection["weekday"] and not client.is_blocked(d):
             matching_dates.append(day)
@@ -206,7 +215,7 @@ def try_book(client, d, prog, who=None):
         raw = prog.get("raw") or {}
         on_wait_list = (raw.get("spacesAvailable", 0) or 0) < 0 or "waiting list" in str(raw.get("bookButtonDisplayString", "")).lower()
         try:
-            chk = client.check(prog, d, who)
+            chk = client.check(prog, d, who, timeout=CHECK_TIMEOUT, retries=0)
         except NGError as e:
             msg = str(e)
             final = classify_error(msg)
@@ -252,59 +261,83 @@ def target_day(advance_days=7):
     return now().date() + timedelta(days=advance_days)
 
 
-def attempt_pass(client, sels, log, mode, only_date=None, skip=(), reasons=None):
-    """One pass over the single target day (default: today + 7). Returns
-    (unpublished, failed) sets of (selection id, date): not yet published, and attempted
-    but not booked. Each selection is for one session type (kind) and one member (who).
-    `skip` lists selection ids to leave alone (e.g. waiting for a delayed retry).
-    `reasons`, when given, is filled with {(selection id, date): why it is still unpublished}."""
-    only_date = only_date or target_day()
-    start_index = len(log)
-    skip = set(skip)
-    unpublished = set()
+def booking_units(sels):
+    """Group selections into units that can be booked independently of each other.
 
-    def still_pending(s, date_iso, why):
+    Selections sharing a timetable read (same kind and member) stay together so the site is asked for it once.
+    All court selections form one unit: only one court is ever booked per day, which needs them in order."""
+    units = {}
+    for s in sels:
+        key = ("courts",) if s["kind"] == "courts" else (s["kind"], s["who"])
+        units.setdefault(key, []).append(s)
+    return list(units.values())
+
+
+def worker_clients(client, n):
+    """n clients for parallel units, each with its own HTTP session (made once and reused across passes).
+    Clients without clone() (test fakes) are shared."""
+    if n <= 1 or not callable(getattr(client, "clone", None)):
+        return [client] * n
+    pool = getattr(client, "_workers", None)
+    if pool is None:
+        pool = client._workers = []
+    while len(pool) < n - 1:
+        pool.append(client.clone())
+    return [client] + pool[:n - 1]
+
+
+def prefetch_bookings(client, sels):
+    """{member: My Bookings} read now (before the release, while the site is quiet); members whose read
+    failed are left out and are read again during the pass."""
+    out = {}
+    for who in dict.fromkeys(s["who"] for s in sels):
+        try:
+            out[who] = client.my_bookings(who)
+        except NGError as e:
+            say(f"[{who}] Could not read My Bookings before the release (will try again after it): {e}")
+    return out
+
+
+def book_unit(client, unit, base_log, mode, d, day, skip, snapshot):
+    """Book one unit's selections in order. Never raises for one selection's problem: a failed read leaves
+    that selection pending (scheduled) or failed (now), and an unexpected error while booking is a failed
+    attempt, so the other selections, in this unit and in other units, still get their turn.
+    Returns (new log entries, unpublished set, reasons)."""
+    ulog = list(base_log)  # private copy: units run in parallel and must not append to a shared list
+    start = len(ulog)
+    date_iso = day.isoformat()
+    unpublished, reasons = set(), {}
+
+    def still_pending(s, why):
         unpublished.add((s["id"], date_iso))
-        if reasons is not None:
-            reasons[(s["id"], date_iso)] = why
+        reasons[(s["id"], date_iso)] = why
 
-    bookings = {}  # per member, read lazily
+    bookings = dict(snapshot or {})  # member -> My Bookings; None when the read failed in this pass
+    booking_errors = {}
+    progs = {}  # (kind, who[, duration]) -> programs for this day
     court_booking_done = any(
-        entry.get("kind") == "courts"
-        and entry.get("date") == only_date.isoformat()
-        and entry.get("result") in {"booked", "already"}
-        for entry in log
+        entry.get("kind") == "courts" and entry.get("date") == date_iso and entry.get("result") in {"booked", "already"}
+        for entry in ulog
     )
-    for d in client.dates():
-        if client.is_blocked(d):
+    for s in unit:
+        if s["id"] in skip:
             continue
-        day = date_of(d)
-        if day != only_date:
+        if already_done(ulog, s["id"], date_iso):
+            if s["kind"] == "courts" and any(
+                entry.get("selectionId") == s["id"] and entry.get("date") == date_iso
+                and entry.get("result") in {"booked", "already"}
+                for entry in ulog
+            ):
+                court_booking_done = True
             continue
-        wanted = [s for s in sels if s["weekday"] == day.weekday()]
-        if not wanted:
+        if s["kind"] == "courts" and court_booking_done:
             continue
-        progs = {}  # (kind, who) -> programs for this day
-        for s in wanted:
-            date_iso = day.isoformat()
-            if s["id"] in skip:
-                continue
-            if already_done(log, s["id"], date_iso):
-                if s["kind"] == "courts" and any(
-                    entry.get("selectionId") == s["id"]
-                    and entry.get("date") == date_iso
-                    and entry.get("result") in {"booked", "already"}
-                    for entry in log
-                ):
-                    court_booking_done = True
-                continue
-            if s["kind"] == "courts" and court_booking_done:
-                continue
-            key = (s["kind"], s["who"])
-            note = ""
+        key = (s["kind"], s["who"])
+        note = ""
+        try:
             if s["kind"] == "courts":
                 if s.get("duration") not in (None, 30):
-                    record(log, mode, s, {"date": date_iso}, "failed", "court booking slots must be 30 minutes")
+                    record(ulog, mode, s, {"date": date_iso}, "failed", "court booking slots must be 30 minutes")
                     continue
                 if s.get("duration") == 30:
                     key = (s["kind"], s["who"], 30)
@@ -324,9 +357,9 @@ def attempt_pass(client, sels, log, mode, only_date=None, skip=(), reasons=None)
                                else f"no court is available at {s['time']} on {date_iso} "
                                     f"(the site lists no 30-minute slots at that time)")
                         if mode == "now":
-                            record(log, mode, s, {"date": date_iso}, "not-published", why)
+                            record(ulog, mode, s, {"date": date_iso}, "not-published", why)
                         else:
-                            still_pending(s, date_iso, why)
+                            still_pending(s, why)
                         continue
                 else:
                     if key not in progs:
@@ -334,7 +367,7 @@ def attempt_pass(client, sels, log, mode, only_date=None, skip=(), reasons=None)
                     prog = next((p for p in progs[key] if p["id"] == s["progId"]), None)
                     candidates = [prog] if prog else []
                     if not candidates:
-                        still_pending(s, date_iso, f"court slot '{s['className']}' at {s['time']} is not listed on {date_iso}")
+                        still_pending(s, f"court slot '{s['className']}' at {s['time']} is not listed on {date_iso}")
                         continue
             else:
                 if key not in progs:
@@ -347,28 +380,102 @@ def attempt_pass(client, sels, log, mode, only_date=None, skip=(), reasons=None)
                                 f"at the same time instead (renamed?)")
                         say(f"[{s['who']}] {note}")
                 if prog is None:
-                    still_pending(s, date_iso, not_found_reason(progs[key], s, date_iso))
+                    still_pending(s, not_found_reason(progs[key], s, date_iso))
                     continue
                 candidates = [prog]
-            for prog in candidates:
-                if s["kind"] == "courts" and (prog.get("raw") or {}).get("duration", 0) > 30:
-                    record(log, mode, s, prog, "failed", "court booking slots must be 30 minutes")
-                    continue
-                if prog["dt"] <= now():
-                    continue
-                if s["who"] not in bookings:
-                    bookings[s["who"]] = client.my_bookings(s["who"])
-                if find_booking(bookings[s["who"]], prog["className"], date_iso, prog["time"]):
-                    record(log, mode, s, prog, "already", join_msgs(note, "found in My Bookings"))
-                    if s["kind"] == "courts":
-                        court_booking_done = True
-                        break
-                    continue
-                result, msg = try_book(client, d, prog, s["who"])
-                record(log, mode, s, prog, result, join_msgs(note, msg))
-                if s["kind"] == "courts" and result in {"booked", "already"}:
+        except Exception as e:  # a failed timetable read must not stop the other selections
+            if not isinstance(e, NGError):
+                traceback.print_exc()
+            msg = str(e) if isinstance(e, NGError) else f"{type(e).__name__}: {e}"
+            say(f"[{s['who']}] Could not read the {s['kind']} timetable for {date_iso}: {msg}")
+            if mode == "now":
+                record(ulog, mode, s, {"date": date_iso}, "failed", msg)
+            else:
+                still_pending(s, f"could not read the club timetable before the polling deadline (last error: {msg})")
+            continue
+        for prog in candidates:
+            if s["kind"] == "courts" and (prog.get("raw") or {}).get("duration", 0) > 30:
+                record(ulog, mode, s, prog, "failed", "court booking slots must be 30 minutes")
+                continue
+            if prog["dt"] <= now():
+                continue
+            who = s["who"]
+            if who not in bookings:
+                # Only a guard against booking something already held. If the site is too slow to answer,
+                # book anyway: MakeBooking itself refuses a duplicate, which classify_error reads as "already".
+                try:
+                    bookings[who] = client.my_bookings(who)
+                except NGError as e:
+                    say(f"[{who}] Could not read My Bookings, booking without the duplicate check: {e}")
+                    bookings[who] = None
+                    booking_errors[who] = str(e)
+            if bookings[who] is not None and find_booking(bookings[who], prog["className"], date_iso, prog["time"]):
+                record(ulog, mode, s, prog, "already", join_msgs(note, "found in My Bookings"))
+                if s["kind"] == "courts":
                     court_booking_done = True
                     break
+                continue
+            unchecked = (f"could not check My Bookings first ({booking_errors[who]}), booked anyway"
+                         if bookings[who] is None else "")
+            try:
+                result, msg = try_book(client, d, prog, who)
+            except Exception as e:  # unexpected response shape: a failed attempt, retried with a delay
+                traceback.print_exc()
+                result, msg = "failed", f"internal error ({type(e).__name__}: {e})"
+            record(ulog, mode, s, prog, result, join_msgs(note, unchecked, msg))
+            if s["kind"] == "courts" and result in {"booked", "already"}:
+                court_booking_done = True
+                break
+    return ulog[start:], unpublished, reasons
+
+
+def attempt_pass(client, sels, log, mode, only_date=None, skip=(), reasons=None, dates=None, bookings=None):
+    """One pass over the single target day (default: today + 7). Returns
+    (unpublished, failed) sets of (selection id, date): not yet published, and attempted
+    but not booked. Each selection is for one session type (kind) and one member (who).
+    `skip` lists selection ids to leave alone (e.g. waiting for a delayed retry).
+    `reasons`, when given, is filled with {(selection id, date): why it is still unpublished}.
+    `dates` is the caller's GetAvailableBookingDates result (read here when not given) and `bookings` an
+    optional {member: My Bookings} read earlier. Independent units (booking_units) run in parallel."""
+    only_date = only_date or target_day()
+    start_index = len(log)
+    unpublished = set()
+    d = next((x for x in (client.dates() if dates is None else dates)
+              if not client.is_blocked(x) and date_of(x) == only_date), None)
+    wanted = [s for s in sels if s["weekday"] == only_date.weekday()]
+    if d is None or not wanted:
+        return unpublished, set()
+    units = booking_units(wanted)
+    args = (log, mode, d, only_date, set(skip), bookings)
+    outcomes, first_error = [], None
+    if len(units) == 1:
+        outcomes.append(book_unit(client, units[0], *args))
+    else:
+        idle = queue.Queue()  # each running unit borrows its own client, so no two threads share a session
+        for c in worker_clients(client, min(len(units), MAX_PARALLEL)):
+            idle.put(c)
+
+        def run(unit):
+            c = idle.get()
+            try:
+                return book_unit(c, unit, *args)
+            finally:
+                idle.put(c)
+
+        with ThreadPoolExecutor(max_workers=idle.qsize()) as pool:
+            futures = [pool.submit(run, u) for u in units]
+            for f in futures:
+                try:
+                    outcomes.append(f.result())
+                except Exception as e:  # keep the other units' results before passing the error on
+                    first_error = first_error or e
+    for entries, pending, why in outcomes:
+        log.extend(entries)
+        unpublished |= pending
+        if reasons is not None:
+            reasons.update(why)
+    if first_error is not None:
+        raise first_error
     return unpublished, pass_failures(log, start_index, only_date.isoformat())
 
 
@@ -426,6 +533,19 @@ def report(entries):
 def run_scheduled(client, sels, log, args, only_date, release_at, run_start):
     """Poll for the newly released day, book every selection on it, and retry failed bookings."""
     wait = (release_at - now()).total_seconds()
+    snapshot = None
+    day_sels = [s for s in sels if s["weekday"] == only_date.weekday()]
+    if wait >= PREFETCH_MIN_LEAD_SECONDS:
+        # Do the reads that do not depend on the release now, while the site is quiet, so at release time
+        # only the timetable and MakeBooking are left. My Bookings for the target day cannot change before the
+        # release, and bookings made by this run are tracked in the log.
+        snapshot = prefetch_bookings(client, day_sels)
+        for who in dict.fromkeys(s["who"] for s in day_sels if s["kind"] == "courts"):
+            try:
+                client.facilities(who)
+            except NGError as e:
+                say(f"[{who}] Could not read the court list before the release: {e}")
+        wait = (release_at - now()).total_seconds()
     if wait > 0:
         say(f"Waiting {wait:.0f}s until {release_at:%H:%M} Sydney time...")
         time.sleep(wait)
@@ -444,10 +564,13 @@ def run_scheduled(client, sels, log, args, only_date, release_at, run_start):
         complete = False
         pass_start = len(log)
         try:
-            visible = any(date_of(d) == only_date and not client.is_blocked(d) for d in client.dates())
+            dates = client.dates()  # read once per poll and handed to attempt_pass
+            visible = any(date_of(d) == only_date and not client.is_blocked(d) for d in dates)
             if visible:
                 pending, failed = attempt_pass(client, sels, log, "scheduled", only_date=only_date,
-                                               skip=gave_up | set(retry_at), reasons=reasons)
+                                               skip=gave_up | set(retry_at), reasons=reasons,
+                                               dates=dates, bookings=snapshot)
+                snapshot = None  # later passes (retries) read My Bookings fresh
                 complete = True
             else:
                 pending, failed = set(), set()
@@ -511,17 +634,20 @@ def run_scheduled(client, sels, log, args, only_date, release_at, run_start):
 def run_now(client, sels, log):
     """Single pass per selection over its next bookable day (the dashboard "Book now" button)."""
     today = now().date()
+    dates = None  # read once, shared by every selection
     for s in sels:
         manual_date = None
         try:
-            manual_date = manual_target_date(client, s, today)
+            if dates is None:
+                dates = client.dates()
+            manual_date = manual_target_date(client, s, today, dates=dates)
             if manual_date is None:
                 selected_day = calendar.day_name[s["weekday"]]
                 record(log, "now", s, {"date": ""}, "not-published",
                        f"no future {selected_day} is currently available to book")
                 continue
             reasons = {}
-            pending, _ = attempt_pass(client, [s], log, "now", only_date=manual_date, reasons=reasons)
+            pending, _ = attempt_pass(client, [s], log, "now", only_date=manual_date, reasons=reasons, dates=dates)
             for sid, d_iso in pending:
                 record(log, "now", s, {"date": d_iso}, "not-published",
                        reasons.get((sid, d_iso), "session not found"))
