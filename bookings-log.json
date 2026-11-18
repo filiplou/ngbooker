@@ -502,5 +502,17 @@
     "slot": "09:30",
     "result": "not-published",
     "message": "could not read the club timetable before the polling deadline (last error: Request timed out: /GetMemberBookings/2417120)"
+  },
+  {
+    "time": "2026-11-19T09:13:45+11:00",
+    "mode": "now",
+    "selectionId": "groupex|Theresa|BodyPump®|3|09:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "BodyPump®",
+    "date": "2026-11-26",
+    "slot": "09:30",
+    "result": "waitlisted",
+    "message": ""
   }
 ]
