@@ -47,7 +47,7 @@
   - [x] Add regression tests for landed-vs-not-landed ambiguous failures
   - [x] Raise `MakeBooking` / `MakeActivityBooking` timeouts to 60 s
   - [x] Add per-API-call timing logs (`[api] METHOD path -> status in Xs`)
-  - [x] Retry failed scheduled bookings up to 3 attempts, 5 minutes apart (skipped once visible in My Bookings)
+  - [x] Retry failed scheduled bookings (now 5 attempts, 30 seconds apart; skipped once visible in My Bookings)
   - [x] Update `Project.md` trigger documentation
   - [x] Verify the complete suite (39 tests passing)
 
@@ -62,10 +62,20 @@
   - [x] Verify the complete suite (49 tests passing)
 
 - [x] Remaining review-findings fixes (issue.md, README excluded)
-  - [x] Court booking no longer re-checks live availability (documented); removed dead saved_court_program$nl  - [x] Failure is judged per selection: failed only if no candidate booked/waitlisted/already
-  - [x] Dashboard 
-ameMatches aligned with ind_booking(); token Remember unticked by default with stronger warning
+  - [x] Court booking no longer re-checks live availability (documented); removed dead saved_court_program
+  - [x] Failure is judged per selection: failed only if no candidate booked/waitlisted/already
+  - [x] Dashboard `nameMatches` aligned with `find_booking()`; token Remember unticked by default with stronger warning
   - [x] Use zoneinfo for Sydney time; pin GitHub Actions to commit SHAs
   - [x] Verify the complete suite (52 tests passing)
 
 - [x] Settings chart plots only automatic (scheduled) bookings; booking-times.json entries now carry `mode`
+
+- [x] v2.0 status-check fixes
+  - [x] Failures before an error mid-pass count towards --max-tries / --retry-delay (no re-send every poll)
+  - [x] First-time setup only remembers the token when "Remember on this device" is ticked
+  - [x] Scrape keeps the previous sessions.json when every lookup fails
+  - [x] "Any court (30 min)" matches court bookings, so automatic courts show the Auto tag (JS and Python)
+  - [x] Release time validated as 00:00-23:59 (dashboard and book.py)
+  - [x] book.yml: job timeout 120 min; `mode` input defaults to `scheduled`
+  - [x] Site errors containing "already" only count as `already` when the booking is held
+  - [x] Repaired corrupted characters in Project.md / progress.md; version 2.0

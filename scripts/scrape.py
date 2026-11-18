@@ -29,14 +29,17 @@ def main():
     members = client.members
     member_keys = [m["key"] for m in members]
     data_member = members[0]
+    lookups, failures = 0, 0
     for kind in ("racquet", "groupex"):
         for d in days:
             date = d.get("dateAsISOString", "unknown")
             started = time.monotonic()
             print(f"Fetching {kind} for all members via {data_member['key']} on {date}", flush=True)
+            lookups += 1
             try:
                 progs = client.programs(d, kind, data_member["key"])
             except NGError as e:
+                failures += 1
                 elapsed = time.monotonic() - started
                 print(
                     f"WARNING: {kind} for all members via {data_member['key']} on {date} "
@@ -52,7 +55,11 @@ def main():
                 v = public_view(p)
                 k = (kind, v["date"], v["time"], v["className"], v["activityID"])
                 merged.setdefault(k, v | {"who": member_keys})
-    sessions = sorted(merged.values(), key=lambda s: (s["kind"], s["date"], s["time"], s["className"]))
+    if lookups and failures == lookups:
+        # The club site is down or failing: keep the last good sessions.json rather than replacing it
+        # with an empty list (which would empty the dashboard).
+        raise NGError(f"all {lookups} session lookups failed; keeping the previous session list")
+    sessions =sorted(merged.values(), key=lambda s: (s["kind"], s["date"], s["time"], s["className"]))
     stamp = datetime.now(SYD).isoformat(timespec="seconds")
 
     write("sessions.json", {"updated": stamp, "availableDates": available_dates, "sessions": sessions})

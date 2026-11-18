@@ -23,6 +23,8 @@ using the first member; those sessions are then associated with every member. Cu
 fetched separately for each member. Courts are not scraped: the court schedule is static and the booking run
 looks up courts only when attempting the saved time preferences. If an individual lookup fails, the warning
 includes the request context and the scraper continues, so that lookup may be missing from refreshed data.
+If every lookup fails (the club site is down), the run fails and the previous `sessions.json` is kept rather than
+replaced with an empty list.
 
 The scripts call the same web API as the club website (`/token`, `/api/ClubLounge/...`), so no browser
 is needed. Selections are stored by *class name + weekday + time*, so a choice repeats every week.
@@ -136,15 +138,19 @@ redo the setup. Revoke the old token.
 - A successful call returns `204 No Content`.
 
 If you change the release time in ⚙ Settings, move the cron-job.org schedule to match; it does not follow the
-dashboard setting. The dispatch must land within 90 minutes of the release time and no more than about an hour
-early (the job times out after 60 minutes).
+dashboard setting. The dispatch must land within 90 minutes before or after the release time (the job times out
+after 120 minutes, which covers the longest wait plus polling). The workflow's `mode` input defaults to `scheduled`,
+so a dispatch that arrives without `inputs` still waits for the release time instead of booking straight away.
+The release time must be a real 24-hour time (00:00-23:59); a scheduled run with an invalid one fails with an error
+instead of silently exiting every day.
 
 **Timeouts and retries.** Every API call logs its duration as `[api] METHOD path -> status in Xs`.
 `MakeBooking` and `MakeActivityBooking` use a 60-second read timeout. If a booking request times out or gets a
 5xx, the run re-reads My Bookings for about 65 seconds (0/5/10/20/30 s) before calling it failed. A failed
 scheduled booking is retried up to **5 attempts per selection (`--max-tries`), 30 seconds apart (`--retry-delay`)**,
 even while other selections are still waiting to be published. Before retrying it re-reads My Bookings,
-so a request that timed out but actually landed is not sent again. If the class availability check fails, the
+so a request that timed out but actually landed is not sent again. A failure still counts towards these limits
+when an error later in the same pass interrupts it, so a booking is never re-sent on every poll. If the class availability check fails, the
 booking is still attempted (the check only tells a booking apart from a waiting-list place). Read-only calls,
 including court slot availability, retry twice on timeouts. Polling runs every 3 s for 2 minutes after release,
 then every 15 s. Login also retries on HTTP 429 and 5xx responses and on a missing access token; other 4xx
@@ -186,7 +192,7 @@ recording a failure, so a booking that landed server-side is not logged as faile
 - The booked/waitlisted result is taken from the site's My Bookings (`isOnWaitList`) after booking. The site may append the court to the name (for example `Social Doubles C1-2` becomes `Social Doubles C1-2 C1`), so a booking matches if its name equals the selection name or starts with it followed by a space.
 - **Book now (test)** triggers `book.yml` in `now` mode for that one selection. It books the nearest future date of the selected weekday that the club currently makes available, regardless of what weekday the test is run. Scheduled bookings continue to target the day exactly 7 days ahead.
 - Silver members only see 7 days ahead; gold-only days are skipped automatically.
-- Courts are not re-checked against live availability at book time: ttempt_pass only offers slots that were Available in a fresh read, and courts have no waiting list. Classes are still re-checked.
+- Courts are not re-checked against live availability at book time: `attempt_pass` only offers slots that were Available in a fresh read, and courts have no waiting list. Classes are still re-checked.
 - A selection with several court candidates counts as failed (and is retried) only if every candidate failed; any booked/waitlisted/already result for it counts as success.
 - **Renamed classes.** If a class selection's exact name is missing but a session at the same time has a name that
   contains all its words (or vice versa), that session is booked and the log says so, e.g. `Sculpt Class` →
@@ -196,8 +202,12 @@ recording a failure, so a booking that landed server-side is not logged as faile
   time (with how many were checked), or the class is not on the timetable (with what runs at that time instead).
 - **`conflict`** means the site refused because the member already has another booking at the same time. It is
   not retried.
-- The booking name matching in the dashboard (
-ameMatches in index.html) and in ind_booking() (scripts/ngclient.py) must stay in sync.
+- **`already`** from a site error is only used when the message says the member already holds the booking
+  (e.g. "already booked", "already on the waiting list"). Messages such as "session is already full" or
+  "already reached the maximum" stay `failed`.
+- Court selections are saved as `Any court (30 min)`; any court booking at that date and time counts as that
+  selection, so automatically booked courts show the *Auto* tag.
+- The booking name matching in the dashboard (`nameMatches` in index.html) and in `find_booking()` (scripts/ngclient.py) must stay in sync.
 
 ## Security notes
 
@@ -210,8 +220,8 @@ ameMatches in index.html) and in ind_booking() (scripts/ngclient.py) must stay 
 - If a phone is lost: revoke the dashboard token on GitHub and redo the vault setup.
 - Never put the token, member number or password in any file or in chat.
 - Check the club's terms allow automated booking.
-- *Remember on this device* is unticked by default because it stores the token unencrypted in the browser's local storage.
-- Workflow actions (ctions/checkout, ctions/setup-python) are pinned to full commit SHAs, so bump them manually (the tag is in the trailing comment).
+- *Remember on this device* is unticked by default, on both the unlock and first-time setup screens, because it stores the token unencrypted in the browser's local storage.
+- Workflow actions (`actions/checkout`, `actions/setup-python`) are pinned to full commit SHAs, so bump them manually (the tag is in the trailing comment).
 
 ## Tests
 

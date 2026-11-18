@@ -7,7 +7,9 @@ on:
     inputs:
       mode:
         description: 'scheduled = wait for 08:01 release, now = book straight away'
-        default: 'now'
+        # Defaults to scheduled so a dispatch without inputs (e.g. a cron-job.org body that lost its
+        # "inputs") still waits for the release time. The dashboard's "Book now" always sends mode=now.
+        default: 'scheduled'
         type: choice
         options: [now, scheduled]
       selection_id:
@@ -27,7 +29,9 @@ jobs:
   book:
     runs-on: ubuntu-latest
     environment: club   # secrets live in this environment, restricted to the main branch
-    timeout-minutes: 60
+    # book.py accepts a start up to 90 min before the release time, then polls ~12 min and may spend
+    # ~1 min per ambiguous booking re-checking My Bookings: 120 min keeps the run (and its log save) alive.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 

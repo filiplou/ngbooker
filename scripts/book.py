@@ -120,12 +120,21 @@ def ambiguous_error(msg):
     )
 
 
+# "already" on its own is not enough: "this session is already full" or "you have already reached the
+# maximum number of bookings" must stay failures, not be logged as a booking the member holds.
+ALREADY_HELD = re.compile(
+    r"already\s+(?:been\s+)?(?:booked|registered|reserved|enrolled|on\s+(?:the\s+)?wait)"
+    r"|already\s+(?:have|has|hold|holds)\s+(?:a|an|this|the)\s+(?:booking|reservation)"
+    r"|already\s+(?:in|on)\s+(?:this|the)\s+(?:class|session|booking|program)"
+)
+
+
 def classify_error(msg):
     """Site messages that are final answers rather than failures worth retrying.
     'already' = the member already holds this booking; 'conflict' = they hold another booking at the
     same time (the site says "another concurrent (at the same time) reservation")."""
     m = msg.lower()
-    if "already" in m:
+    if ALREADY_HELD.search(m):
         return "already"
     if "concurrent" in m or "at the same time" in m:
         return "conflict"
@@ -360,14 +369,19 @@ def attempt_pass(client, sels, log, mode, only_date=None, skip=(), reasons=None)
                 if s["kind"] == "courts" and result in {"booked", "already"}:
                     court_booking_done = True
                     break
-    # A selection failed in this pass only if it has a failure and no success: with several court candidates
-    # a later "failed" must not hide an earlier "booked", and vice versa.
+    return unpublished, pass_failures(log, start_index, only_date.isoformat())
+
+
+def pass_failures(log, start_index, date_iso):
+    """(selection id, date) pairs that failed in the log entries from start_index on.
+
+    A selection failed only if it has a failure and no success: with several court candidates
+    a later "failed" must not hide an earlier "booked", and vice versa."""
     results = {}
     for entry in log[start_index:]:
-        if entry.get("date") == only_date.isoformat():
+        if entry.get("date") == date_iso:
             results.setdefault(entry.get("selectionId"), set()).add(entry.get("result"))
-    failed = {(sid, only_date.isoformat()) for sid, rs in results.items() if "failed" in rs and not (rs & DONE)}
-    return unpublished, failed
+    return {(sid, date_iso) for sid, rs in results.items() if "failed" in rs and not (rs & DONE)}
 
 
 def final_results(entries):
@@ -428,6 +442,7 @@ def run_scheduled(client, sels, log, args, only_date, release_at, run_start):
         for sid in [sid for sid, t in retry_at.items() if now() >= t]:
             retry_at.pop(sid)
         complete = False
+        pass_start = len(log)
         try:
             visible = any(date_of(d) == only_date and not client.is_blocked(d) for d in client.dates())
             if visible:
@@ -440,12 +455,14 @@ def run_scheduled(client, sels, log, args, only_date, release_at, run_start):
             # Read calls already retried inside the client; keep polling until the deadline.
             last_error = str(e)
             say(f"Pass failed, will retry until the deadline: {e}")
-            failed = set()
+            # Bookings that failed before the error still count, so they wait for --retry-delay and
+            # stay within --max-tries instead of being re-sent on every poll.
+            failed = pass_failures(log, pass_start, date_iso)
         except Exception as e:  # an unexpected response shape must not end the morning run
             last_error = f"{type(e).__name__}: {e}"
             say(f"Unexpected error during a booking pass, will retry until the deadline: {last_error}")
             traceback.print_exc()
-            failed = set()
+            failed = pass_failures(log, pass_start, date_iso)
         # A clash with another booking will not resolve itself: do not retry it.
         gave_up |= {e["selectionId"] for e in log[run_start:] if e["result"] == "conflict"}
         for sid, _ in failed:
@@ -515,6 +532,15 @@ def run_now(client, sels, log):
             record(log, "now", s, {"date": manual_date.isoformat() if manual_date else ""}, "failed", msg)
 
 
+def parse_release(value):
+    """'08:01' or '8:01' -> (8, 1); None when it is not a real time of day."""
+    m = re.fullmatch(r"\s*(\d{1,2}):(\d{2})\s*", str(value or ""))
+    if not m:
+        return None
+    hh, mm = int(m.group(1)), int(m.group(2))
+    return (hh, mm) if hh < 24 and mm < 60 else None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["scheduled", "now"], default="scheduled")
@@ -539,6 +565,10 @@ def main():
     # Release time can be overridden via selections.json (set from the dashboard Settings tab).
     if not args.release:
         args.release = sel_data.get("releaseTime", "08:01")
+    if args.mode == "scheduled" and parse_release(args.release) is None:
+        say(f"ERROR: release time {args.release!r} is not a valid HH:MM time (00:00-23:59). "
+            f"Fix it in the dashboard Settings tab.")
+        return 1
 
     log = load("bookings-log.json", [])
     run_start = len(log)
@@ -549,7 +579,7 @@ def main():
 
     if args.mode == "scheduled":
         # Accept any run that starts within 90 minutes before or after the configured release time.
-        hh_r, mm_r = map(int, args.release.split(":"))
+        hh_r, mm_r = parse_release(args.release)
         release_minutes = hh_r * 60 + mm_r
         minutes = start.hour * 60 + start.minute
         if not (release_minutes - 90 <= minutes <= release_minutes + 90):

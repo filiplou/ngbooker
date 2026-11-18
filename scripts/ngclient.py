@@ -514,6 +514,9 @@ def find_booking(bookings, class_name, date_iso, time_str=None):
         have, want_name = str(b.get("className", "")).strip().lower(), class_name.strip().lower()
         if have == want_name or have.startswith(want_name + " "):
             return b
+        # Dashboard court selections are 'Any court (30 min)': any court booking at that date and time is it.
+        if want_name.startswith("any court") and re.search(r"\bcourt\b", have):
+            return b
         # Extract court number from either format: 'court 3', 'Court 3', or trailing 'C3'.
         # Covers our names ("synth court 3 (60 min)") and the site's names ("tennis court hire 0.5 hr c3").
         if not re.search(r"\bcourt\b", have) or not re.search(r"\bcourt\b", want_name):

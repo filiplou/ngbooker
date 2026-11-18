@@ -89,6 +89,8 @@
         </ul>
         <label>Passphrase<input type="password" id="setupPass1" autocomplete="new-password"></label>
         <label>Passphrase again<input type="password" id="setupPass2" autocomplete="new-password"></label>
+        <label class="chk"><input type="checkbox" id="setupRemember"> Remember on this device</label>
+        <p class="muted"><strong>Warning:</strong> ticking this stores your GitHub token unencrypted in this browser's local storage. Leave it unticked unless this is a device you own and trust.</p>
         <p><button class="primary" id="setupBtn">Create vault and unlock</button></p>
         <div class="err" id="setupErr"></div>
       </div>
@@ -156,7 +158,7 @@
   </section>
 
   </div>
-  <footer>Made with IBM Bob v1.1</footer>
+  <footer>Made with IBM Bob v2.0</footer>
 </main>
 
 <script>
@@ -323,7 +325,8 @@
       err.textContent = "Checking token and saving...";
       cfg.token = token;
       return putVault(vault, null).then(function () {
-        localStorage.setItem("ngb.token", token);
+        if ($("setupRemember").checked) localStorage.setItem("ngb.token", token); else localStorage.removeItem("ngb.token");
+        $("setupRemember").checked = false;
         ["setupToken", "setupPass1", "setupPass2"].forEach(function (id) { $(id).value = ""; });
         err.textContent = ""; enterApp();
       });
@@ -480,6 +483,8 @@
     var a = String(have || "").trim().toLowerCase(), b = String(want || "").trim().toLowerCase();
     if (!b) return false;
     if (a === b || a.indexOf(b + " ") === 0) return true;
+    // Dashboard court selections are "Any court (30 min)": any court booking (date/time checked by the caller) is it.
+    if (b.indexOf("any court") === 0 && /\bcourt\b/.test(a)) return true;
     // Court names only: match court number from either "court 3" or trailing "C3" (site's booking name format).
     if (!/\bcourt\b/.test(a) || !/\bcourt\b/.test(b)) return false;
     function courtNum(s) {
@@ -744,8 +749,9 @@
   $("saveSettings").onclick = function () {
     var rt = $("releaseTime").value.trim();
     if (!rt) { log("Enter a release time in HH:MM format (e.g. 08:01).", true); return; }
-    if (!/^\d{1,2}:\d{2}$/.test(rt)) {
-      log("Invalid release time — use HH:MM format (e.g. 08:01).", true); return;
+    var rtm = /^(\d{1,2}):(\d{2})$/.exec(rt);
+    if (!rtm || +rtm[1] > 23 || +rtm[2] > 59) {
+      log("Invalid release time — use a 24-hour HH:MM time between 00:00 and 23:59 (e.g. 08:01).", true); return;
     }
     state.releaseTime = rt.length === 4 ? "0" + rt : rt;
     state.dirty = true;

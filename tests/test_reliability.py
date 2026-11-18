@@ -202,6 +202,66 @@ class ScheduledRunTests(unittest.TestCase):
         self.assertEqual(sleeps[-1], book.SLOW_POLL)
         self.assertLess(len(sleeps), 120)  # ~40 fast polls + ~40 slow ones over the 12-minute window
 
+    def test_failure_before_an_error_in_the_same_pass_still_counts_towards_max_tries(self):
+        # Spin fails, then booking Yoga blows up in the same pass. Before the fix the Spin failure was
+        # forgotten and MakeBooking for Spin was re-sent on every 3-second poll until the deadline.
+        c = FakeClient(DAY, [prog("Spin"), prog("Yoga")])
+        c.my_bookings = lambda who=None: []
+        spin_times = []
+        clock = Clock(RUN_START)
+
+        def book_call(p, who=None):
+            if p["className"] == "Spin":
+                spin_times.append(clock.now())
+                raise NGError("HTTP 400 POST /MakeBooking: boom")
+            raise RuntimeError("unexpected response shape")
+
+        c.book = book_call
+        code, saved = run_main(["--mode", "scheduled"], [sel("Spin"), sel("Yoga")], c, clock)
+        self.assertEqual(len(spin_times), 5)  # --max-tries
+        gaps = [b - a for a, b in zip(spin_times, spin_times[1:])]
+        self.assertTrue(all(g >= timedelta(seconds=30) for g in gaps), gaps)
+        self.assertEqual(code, 1)
+
+
+class ReleaseTimeTests(unittest.TestCase):
+    def test_parse_release(self):
+        self.assertEqual(book.parse_release("08:01"), (8, 1))
+        self.assertEqual(book.parse_release("8:01"), (8, 1))
+        for bad in ("25:00", "24:00", "08:60", "8", "", None, "ab:cd"):
+            self.assertIsNone(book.parse_release(bad), bad)
+
+    def test_invalid_release_time_fails_the_scheduled_run(self):
+        said = []
+        with mock.patch.object(book, "say", said.append):
+            code, saved = run_main(["--mode", "scheduled", "--release", "25:00"], [sel("Spin")],
+                                   FakeClient(DAY, [prog("Spin")]), Clock(RUN_START))
+        self.assertEqual(code, 1)
+        self.assertIn("not a valid HH:MM time", said[-1])
+
+    def test_invalid_release_time_does_not_block_book_now(self):
+        c = FakeClient(DAY, [prog("Spin")])
+        c.my_bookings = lambda who=None: []
+        c.dates = lambda: [{"dateAsISOString": "2026-11-02T00:00:00"}]
+        code, saved = run_main(["--mode", "now", "--release", "25:00"], [sel("Spin")], c, Clock(RUN_START))
+        self.assertEqual([e["result"] for e in saved], ["booked"])
+        self.assertEqual(code, 0)
+
+
+class ClassifyErrorTests(unittest.TestCase):
+    def test_held_booking_is_already(self):
+        for msg in ("You are already booked into this class", "Member is already on the waiting list",
+                    "You already have a booking for this session", "Already registered"):
+            self.assertEqual(book.classify_error(msg), "already", msg)
+
+    def test_other_already_messages_are_not_success(self):
+        for msg in ("This session is already full", "You have already reached the maximum number of bookings",
+                    "Booking window has already closed"):
+            self.assertIsNone(book.classify_error(msg), msg)
+
+    def test_conflict(self):
+        self.assertEqual(book.classify_error("another concurrent (at the same time) reservation"), "conflict")
+
 
 class ClientErrorTests(unittest.TestCase):
     def client(self, response):

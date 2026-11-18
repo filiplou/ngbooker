@@ -607,6 +607,11 @@ class Tests(unittest.TestCase):
         b2 = [{"className": "Tennis Court Hire 0.5 Hr C3", "displayDate": "Sunday 25 October", "displayTime": "1:30 PM"}]
         self.assertIsNotNone(ngclient.find_booking(b2, "Synth Court 3 (30 min)", "2026-10-25", "13:30"))
         self.assertIsNone(ngclient.find_booking(b2, "Synth Court 2 (30 min)", "2026-10-25", "13:30"))
+        # Dashboard court selections ("Any court (30 min)") match any court booking at that date and time
+        self.assertIsNotNone(ngclient.find_booking(b2, "Any court (30 min)", "2026-10-25", "13:30"))
+        self.assertIsNone(ngclient.find_booking(b2, "Any court (30 min)", "2026-10-25", "14:00"))
+        b3 = [{"className": "Social Doubles C1-2", "displayDate": "Sunday 25 October", "displayTime": "1:30 PM"}]
+        self.assertIsNone(ngclient.find_booking(b3, "Any court (30 min)", "2026-10-25", "13:30"))
 
     def test_client_courts_flow(self):
         c = ngclient.NGClient("testuser", "testpw")

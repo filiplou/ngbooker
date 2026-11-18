@@ -96,5 +96,24 @@ class ScrapeTests(unittest.TestCase):
         self.assertTrue(all(session["who"] == members for session in sessions))
         self.assertEqual(len(bookings), 3)
 
+    def test_keeps_previous_sessions_when_every_lookup_fails(self):
+        day = datetime.now(SYD).date() + timedelta(days=1)
+        client = FakeClient(day, ["Filip"], {})
+
+        def down(*_a, **_kw):
+            raise scrape.NGError("HTTP 503 POST /AvailableClassesForDate: Service Unavailable")
+
+        client.programs = down
+        with tempfile.TemporaryDirectory() as temp_dir:
+            previous = '{"sessions": [{"id": "keep me"}]}\n'
+            (Path(temp_dir) / "sessions.json").write_text(previous, encoding="utf-8")
+            with mock.patch.object(scrape, "client_from_env", return_value=client), \
+                    mock.patch.object(scrape, "DATA", Path(temp_dir)), \
+                    contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                with self.assertRaisesRegex(scrape.NGError, "all 14 session lookups failed"):
+                    scrape.main()
+            self.assertEqual((Path(temp_dir) / "sessions.json").read_text(encoding="utf-8"), previous)
+
+
 if __name__ == "__main__":
     unittest.main()
