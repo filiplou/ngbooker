@@ -68,6 +68,13 @@
   - [x] Use zoneinfo for Sydney time; pin GitHub Actions to commit SHAs
   - [x] Verify the complete suite (52 tests passing)
 
+- [x] Release-time critical path (after the 19 Nov 2026 run: GetMemberBookings timed out, nothing booked)
+  - [x] A failed My Bookings pre-check no longer blocks booking; read once per member per pass
+  - [x] CheckAvailability gets one 10 s attempt instead of 3 x 30 s
+  - [x] Errors isolated per selection; independent units booked in parallel on separate sessions
+  - [x] My Bookings and court list read before the release; booking dates read once per poll
+  - [x] Tests in `tests/test_booking_path.py` (98 tests passing; 15 of the 19 new ones fail on the old code)
+
 - [x] Settings chart plots only automatic (scheduled) bookings; booking-times.json entries now carry `mode`
 
 - [x] v2.0 status-check fixes

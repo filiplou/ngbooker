@@ -151,11 +151,27 @@ scheduled booking is retried up to **5 attempts per selection (`--max-tries`), 3
 even while other selections are still waiting to be published. Before retrying it re-reads My Bookings,
 so a request that timed out but actually landed is not sent again. A failure still counts towards these limits
 when an error later in the same pass interrupts it, so a booking is never re-sent on every poll. If the class availability check fails, the
-booking is still attempted (the check only tells a booking apart from a waiting-list place). Read-only calls,
+booking is still attempted (the check only tells a booking apart from a waiting-list place); the check gets one
+10-second attempt (`CHECK_TIMEOUT`) instead of the usual retries, so a slow site cannot hold a booking up with it. Other read-only calls,
 including court slot availability, retry twice on timeouts. Polling runs every 3 s for 2 minutes after release,
 then every 15 s. Login also retries on HTTP 429 and 5xx responses and on a missing access token; other 4xx
 responses (e.g. bad credentials) fail immediately. A non-JSON response (e.g. a maintenance page) is reported
 with the start of its text (emails and long numbers masked) instead of crashing the run.
+
+**What can hold a booking up at release time.** Only the timetable read and `MakeBooking` are on the critical path:
+- *Before the release* (when the run starts at least 2 minutes early), the run reads each member's My Bookings and
+  the court list. If those reads fail, they are simply tried again after the release.
+- *Each poll* reads `GetAvailableBookingDates` once and passes it on (it used to be read twice per pass).
+- *The "already booked?" check* against My Bookings is read once per member per pass. If it fails (as on
+  19 Nov 2026, when `GetMemberBookings` timed out from 08:01 until the deadline and nothing was booked), the booking
+  is made anyway and the log says `could not check My Bookings first (...), booked anyway`. Bookings made earlier in
+  the same run are still recognised from the log, and the site's own "already booked" reply counts as `already`.
+- *Selections are independent.* A failed timetable read leaves only that selection pending (scheduled) or failed
+  (`now`), and an unexpected error while booking one selection is a failed attempt for that selection (retried
+  30 s later), not the end of the pass.
+- *Parallel units.* Selections are grouped into units: one per session type and member (so they share one
+  timetable read), plus a single unit for all court selections (only one court is booked per day). Units are
+  booked at the same time, up to 4 at once, each on its own HTTP session; the log keeps the selections' order.
 
 **Run results.** At the end of each run `book.py` prints a summary and writes a results table to the GitHub job
 summary. It exits with code 1, so the run shows as failed and GitHub notifies you, when any selection ended
