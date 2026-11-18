@@ -1,39 +1,6 @@
 {
-  "updated": "2026-11-18T16:53:34+11:00",
+  "updated": "2026-11-19T08:19:46+11:00",
   "bookings": [
-    {
-      "bookingID": 21149358,
-      "displayDate": "Sunday 22 November",
-      "displayTime": "2:30 PM",
-      "className": "Tennis Court Hire 0.5 Hr C1",
-      "duration": "30 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
-    {
-      "bookingID": 21084040,
-      "displayDate": "Tuesday 24 November",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
-    {
-      "bookingID": 20960300,
-      "displayDate": "Thursday 19 November",
-      "displayTime": "8:30 AM",
-      "className": "Sculpt Booty Band",
-      "duration": "55 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Theresa"
-    },
     {
       "bookingID": 20960334,
       "displayDate": "Thursday 19 November",
@@ -41,7 +8,7 @@
       "className": "BodyPump®",
       "duration": "55 mins",
       "canCancelBooking": true,
-      "isOnWaitList": true,
+      "isOnWaitList": false,
       "firstName": null,
       "who": "Theresa"
     },
