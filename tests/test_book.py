@@ -31,7 +31,7 @@ class FakeClient:
     def is_blocked(self, d):
         return False
 
-    def programs(self, d, kind="racquet", who=None):
+    def programs(self, d, kind="racquet", who=None, duration=None):
         self.asked = getattr(self, "asked", []) + [(kind, who)]
         return [p for p in self.progs if p.get("kind", "racquet") == kind]
 
@@ -193,7 +193,8 @@ class Tests(unittest.TestCase):
         client.my_bookings.return_value = [self.landed()]
         result, message = book.try_book(client, {}, self.prog, "Filip")
         self.assertEqual(result, "booked")
-        self.assertEqual(message, "Request timed out: /MakeBooking")
+        self.assertIn("Request timed out: /MakeBooking", message)
+        self.assertIn("found in My Bookings", message)
 
     def test_server_error_that_landed_on_the_waiting_list_is_recorded(self):
         client = mock.Mock()
@@ -206,16 +207,19 @@ class Tests(unittest.TestCase):
         client = mock.Mock()
         client.book.side_effect = NGError("Request timed out: /MakeBooking")
         client.my_bookings.return_value = []
-        with mock.patch("book.time.sleep"):
-            result, _ = book.try_book(client, {}, self.prog, "Filip")
+        with mock.patch("book.time.sleep") as sleep:
+            result, message = book.try_book(client, {}, self.prog, "Filip")
         self.assertEqual(result, "failed")
+        self.assertIn("not found in My Bookings after 65s", message)
+        self.assertEqual(client.my_bookings.call_count, len(book.AMBIGUOUS_RETRY_DELAYS))
+        self.assertEqual(sum(c.args[0] for c in sleep.call_args_list), 65)
 
     def test_business_error_is_not_treated_as_ambiguous(self):
         client = mock.Mock()
-        client.book.side_effect = NGError("You have another concurrent reservation")
+        client.book.side_effect = NGError("You have another concurrent (at the same time) reservation")
         with mock.patch("book.time.sleep") as sleep:
             result, _ = book.try_book(client, {}, self.prog, "Filip")
-        self.assertEqual(result, "failed")
+        self.assertEqual(result, "conflict")
         sleep.assert_not_called()
         client.my_bookings.assert_not_called()
 
