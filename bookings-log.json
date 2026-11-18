@@ -478,5 +478,29 @@
     "slot": "08:30",
     "result": "not-published",
     "message": "session not found before the polling deadline"
+  },
+  {
+    "time": "2026-11-19T08:14:47+11:00",
+    "mode": "scheduled",
+    "selectionId": "racquet|Filip|Social Doubles B2 C1-2|3|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles B2 C1-2",
+    "date": "2026-11-26",
+    "slot": "19:30",
+    "result": "not-published",
+    "message": "could not read the club timetable before the polling deadline (last error: Request timed out: /GetMemberBookings/2417120)"
+  },
+  {
+    "time": "2026-11-19T08:14:47+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|BodyPump®|3|09:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "BodyPump®",
+    "date": "2026-11-26",
+    "slot": "09:30",
+    "result": "not-published",
+    "message": "could not read the club timetable before the polling deadline (last error: Request timed out: /GetMemberBookings/2417120)"
   }
 ]
