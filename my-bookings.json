@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-20T12:48:05+11:00",
+  "updated": "2026-11-21T07:56:03+11:00",
   "bookings": [
     {
       "bookingID": 21149358,
@@ -30,7 +30,7 @@
       "className": "Social Doubles B2 C1-2 C1",
       "duration": "60 mins",
       "canCancelBooking": true,
-      "isOnWaitList": true,
+      "isOnWaitList": false,
       "firstName": null,
       "who": "Filip"
     },
