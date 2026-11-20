@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-20T07:55:54+11:00",
+  "updated": "2026-11-20T12:48:05+11:00",
   "bookings": [
     {
       "bookingID": 21149358,
@@ -33,17 +33,6 @@
       "isOnWaitList": true,
       "firstName": null,
       "who": "Filip"
-    },
-    {
-      "bookingID": 21087687,
-      "displayDate": "Friday 20 November",
-      "displayTime": "8:30 AM",
-      "className": "Cycle/tabata Studio 1 & 3",
-      "duration": "55 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Theresa"
     },
     {
       "bookingID": 21125954,
