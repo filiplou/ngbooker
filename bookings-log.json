@@ -514,5 +514,53 @@
     "slot": "09:30",
     "result": "waitlisted",
     "message": ""
+  },
+  {
+    "time": "2026-11-22T08:13:05+11:00",
+    "mode": "scheduled",
+    "selectionId": "courts|Filip|Any court (30 min)|6|16:30",
+    "kind": "courts",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-11-29",
+    "slot": "16:30",
+    "result": "not-published",
+    "message": "no court is available at 16:30 on 2026-11-29 (the site lists no 30-minute slots at that time)"
+  },
+  {
+    "time": "2026-11-22T08:13:05+11:00",
+    "mode": "scheduled",
+    "selectionId": "courts|Filip|Any court (30 min)|6|16:00",
+    "kind": "courts",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-11-29",
+    "slot": "16:00",
+    "result": "not-published",
+    "message": "no court is available at 16:00 on 2026-11-29 (the site lists no 30-minute slots at that time)"
+  },
+  {
+    "time": "2026-11-22T08:13:05+11:00",
+    "mode": "scheduled",
+    "selectionId": "courts|Filip|Any court (30 min)|6|17:30",
+    "kind": "courts",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-11-29",
+    "slot": "17:30",
+    "result": "not-published",
+    "message": "no court is available at 17:30 on 2026-11-29 (the site lists no 30-minute slots at that time)"
+  },
+  {
+    "time": "2026-11-22T08:13:05+11:00",
+    "mode": "scheduled",
+    "selectionId": "courts|Filip|Any court (30 min)|6|17:00",
+    "kind": "courts",
+    "who": "Filip",
+    "className": "Any court (30 min)",
+    "date": "2026-11-29",
+    "slot": "17:00",
+    "result": "not-published",
+    "message": "no court is available at 17:00 on 2026-11-29 (the site lists no 30-minute slots at that time)"
   }
 ]
