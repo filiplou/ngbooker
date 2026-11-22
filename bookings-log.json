@@ -562,5 +562,17 @@
     "slot": "17:00",
     "result": "not-published",
     "message": "no court is available at 17:00 on 2026-11-29 (the site lists no 30-minute slots at that time)"
+  },
+  {
+    "time": "2026-11-23T08:03:10+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band",
+    "date": "2026-11-30",
+    "slot": "09:10",
+    "result": "booked",
+    "message": "availability check failed (Request timed out: /CheckAvailability), booked anyway; Request timed out: /MakeBooking - but the booking was found in My Bookings"
   }
 ]
