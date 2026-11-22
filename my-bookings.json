@@ -1,17 +1,6 @@
 {
-  "updated": "2026-11-22T11:27:29+11:00",
+  "updated": "2026-11-23T08:09:05+11:00",
   "bookings": [
-    {
-      "bookingID": 21084192,
-      "displayDate": "Thursday 26 November",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles B2 C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
     {
       "bookingID": 21125954,
       "displayDate": "Monday 23 November",
@@ -53,6 +42,28 @@
       "duration": "55 mins",
       "canCancelBooking": true,
       "isOnWaitList": true,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 21087688,
+      "displayDate": "Friday 27 November",
+      "displayTime": "8:30 AM",
+      "className": "Cycle/tabata Studio 1 & 3",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 21125955,
+      "displayDate": "Monday 30 November",
+      "displayTime": "9:10 AM",
+      "className": "Sculpt Booty Band",
+      "duration": "45 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
       "firstName": null,
       "who": "Theresa"
     }
