@@ -88,5 +88,14 @@
     "slot": "09:10",
     "selectionId": "groupex|Theresa|Sculpt Booty Band|0|09:10",
     "mode": "scheduled"
+  },
+  {
+    "time": "2026-11-24T08:04:43+11:00",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band Class",
+    "date": "2026-12-01",
+    "slot": "08:30",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band Class|1|08:30",
+    "mode": "scheduled"
   }
 ]

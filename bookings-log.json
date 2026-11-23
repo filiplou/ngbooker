@@ -574,5 +574,41 @@
     "slot": "09:10",
     "result": "booked",
     "message": "availability check failed (Request timed out: /CheckAvailability), booked anyway; Request timed out: /MakeBooking - but the booking was found in My Bookings"
+  },
+  {
+    "time": "2026-11-24T08:11:36+11:00",
+    "mode": "scheduled",
+    "selectionId": "racquet|Filip|Social Doubles C1-2|1|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles C1-2",
+    "date": "2026-12-01",
+    "slot": "19:30",
+    "result": "failed",
+    "message": "availability check failed (Request timed out: /CheckAvailability), booked anyway; Request timed out: /MakeBooking - not found in My Bookings after 65s of checking"
+  },
+  {
+    "time": "2026-11-24T08:04:43+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|Sculpt Booty Band Class|1|08:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "Sculpt Booty Band Class",
+    "date": "2026-12-01",
+    "slot": "08:30",
+    "result": "booked",
+    "message": "availability check failed (Request timed out: /CheckAvailability), booked anyway; Request timed out: /MakeBooking - but the booking was found in My Bookings"
+  },
+  {
+    "time": "2026-11-24T08:13:58+11:00",
+    "mode": "scheduled",
+    "selectionId": "racquet|Filip|Social Doubles C1-2|1|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles C1-2",
+    "date": "2026-12-01",
+    "slot": "19:30",
+    "result": "conflict",
+    "message": "could not check My Bookings first (Request timed out: /GetMemberBookings/2417120), booked anyway; HTTP 403 POST /MakeBooking: You have another concurrent (at the same time) reservation. Please cancel your existing reservation and try again or choose a class with a different time."
   }
 ]
