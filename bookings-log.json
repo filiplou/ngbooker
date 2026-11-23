@@ -610,5 +610,17 @@
     "slot": "19:30",
     "result": "conflict",
     "message": "could not check My Bookings first (Request timed out: /GetMemberBookings/2417120), booked anyway; HTTP 403 POST /MakeBooking: You have another concurrent (at the same time) reservation. Please cancel your existing reservation and try again or choose a class with a different time."
+  },
+  {
+    "time": "2026-11-24T08:01:34+11:00",
+    "mode": "scheduled",
+    "selectionId": "racquet|Filip|Social Doubles C1-2|1|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles C1-2",
+    "date": "2026-12-01",
+    "slot": "19:30",
+    "result": "booked",
+    "message": "the booking request timed out and a retry was refused as a clash with it; confirmed in My Bookings (Social Doubles C1-2 C1) - added after the run"
   }
 ]
