@@ -217,7 +217,12 @@ recording a failure, so a booking that landed server-side is not logged as faile
 - **Why not published.** `not-published` messages say why: the day was never released, no court was free at that
   time (with how many were checked), or the class is not on the timetable (with what runs at that time instead).
 - **`conflict`** means the site refused because the member already has another booking at the same time. It is
-  not retried.
+  not retried. When it follows a booking request for the same session that timed out and could not be found in
+  My Bookings, the clash is most likely with that booking (it landed after all). Once polling ends the run waits
+  60, 120 and 180 seconds for the 08:00 rush to pass, reading My Bookings each time. If the session is there, it
+  is logged `booked` / `waitlisted`. If My Bookings reads fine but the session is not there, the clash is real and
+  stays `conflict`. If My Bookings never answers, it stays `conflict` and the message says it is probably booked.
+  "Book now" does the same check straight away.
 - **`already`** from a site error is only used when the message says the member already holds the booking
   (e.g. "already booked", "already on the waiting list"). Messages such as "session is already full" or
   "already reached the maximum" stay `failed`.

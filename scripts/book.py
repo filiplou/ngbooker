@@ -43,6 +43,14 @@ CHECK_TIMEOUT = 10
 MAX_PARALLEL = 4
 # Read My Bookings / court facilities before the release only when there is comfortably time to (3 x 30s reads).
 PREFETCH_MIN_LEAD_SECONDS = 120
+# A "concurrent reservation" refusal after our own MakeBooking timed out is most likely that booking having
+# landed. Confirm it in My Bookings once polling is over, when the 08:00 rush has usually passed: wait these
+# many seconds before each read (scheduled runs). Book-now runs read straight away.
+CONFIRM_DELAYS = (60, 120, 180)
+CONFIRM_DELAYS_NOW = (0,)
+# try_book's message when an ambiguous MakeBooking failure could not be found in My Bookings.
+NOT_FOUND_AFTER = "not found in My Bookings after"
+PROBABLY_OURS = "probably the earlier attempt that timed out - checking My Bookings"
 
 
 def load(name, default):
@@ -194,6 +202,60 @@ def not_found_reason(progs, sel, date_iso):
     return "; ".join(parts)
 
 
+def unconfirmed_attempt(entries, sid, date_iso):
+    """True when an earlier MakeBooking for this selection and day failed ambiguously (timeout / 5xx) and
+    was not found in My Bookings afterwards, so it may still have landed."""
+    return any(e.get("selectionId") == sid and e.get("date") == date_iso and e.get("result") == "failed"
+               and NOT_FOUND_AFTER in (e.get("message") or "") for e in entries)
+
+
+def probable_own_conflicts(log, run_start):
+    """This run's final 'conflict' outcomes that follow an unconfirmed attempt for the same selection and
+    day (in this run or an earlier one): the site refusing a booking at the same time as one we may
+    already hold, i.e. most likely our own."""
+    return [e for e in final_results(log[run_start:])
+            if e["result"] == "conflict" and unconfirmed_attempt(log, e["selectionId"], e["date"])]
+
+
+def confirm_probable_own(client, sels, log, run_start, mode, delays):
+    """Settle probable-own conflicts from this run by reading My Bookings. Found -> logged booked /
+    waitlisted. Read fine but not there -> a real clash, left as conflict. Unreadable -> tried again
+    after the next delay, and left as conflict if it never answers."""
+    todo = probable_own_conflicts(log, run_start)
+    if not todo:
+        return
+    say(f"{len(todo)} booking clash(es) may be our own earlier booking; confirming in My Bookings.")
+    by_id = {s["id"]: s for s in sels}
+    for delay in delays:
+        if not todo:
+            return
+        if delay:
+            time.sleep(delay)
+        read = {}  # who -> bookings, or None when the read failed this round
+        for e in list(todo):
+            who = e["who"]
+            if who not in read:
+                try:
+                    read[who] = client.my_bookings(who)
+                except NGError as err:
+                    say(f"[{who}] Could not read My Bookings to confirm: {err}")
+                    read[who] = None
+            if read[who] is None:
+                continue
+            todo.remove(e)
+            b = find_booking(read[who], e["className"], e["date"], e["slot"])
+            s = by_id.get(e["selectionId"])
+            if b is None or s is None:
+                say(f"[{who}] {e['className']} {e['date']} {e['slot']}: not in My Bookings, so the clash is real.")
+                continue
+            record(log, mode, s, {"date": e["date"]}, "waitlisted" if b.get("isOnWaitList") else "booked",
+                   "the booking request timed out and a retry was refused as a clash with it; "
+                   "confirmed in My Bookings")
+    for e in todo:
+        say(f"[{e['who']}] {e['className']} {e['date']} {e['slot']}: could not confirm in My Bookings; "
+            f"left as conflict (probably booked - check the dashboard).")
+
+
 def booking_after_error(client, prog, who):
     """Re-read My Bookings after an ambiguous error. Returns the confirmed result or None."""
     try:
@@ -242,7 +304,7 @@ def try_book(client, d, prog, who=None):
                 result = booking_after_error(client, prog, who)
                 if result:
                     return result, f"{msg} - but the booking was found in My Bookings"
-            return "failed", f"{msg} - not found in My Bookings after {sum(AMBIGUOUS_RETRY_DELAYS)}s of checking"
+            return "failed", f"{msg} - {NOT_FOUND_AFTER} {sum(AMBIGUOUS_RETRY_DELAYS)}s of checking"
         return "failed", msg
     if ok is not True:
         got = _snippet(json.dumps(sanitize(ok), default=str), 100)
@@ -422,6 +484,8 @@ def book_unit(client, unit, base_log, mode, d, day, skip, snapshot):
             except Exception as e:  # unexpected response shape: a failed attempt, retried with a delay
                 traceback.print_exc()
                 result, msg = "failed", f"internal error ({type(e).__name__}: {e})"
+            if result == "conflict" and unconfirmed_attempt(ulog, s["id"], date_iso):
+                msg = join_msgs(msg, PROBABLY_OURS)
             record(ulog, mode, s, prog, result, join_msgs(note, unchecked, msg))
             if s["kind"] == "courts" and result in {"booked", "already"}:
                 court_booking_done = True
@@ -531,7 +595,13 @@ def report(entries):
 
 
 def run_scheduled(client, sels, log, args, only_date, release_at, run_start):
-    """Poll for the newly released day, book every selection on it, and retry failed bookings."""
+    """Poll for the newly released day, book every selection on it, and retry failed bookings. Then
+    confirm any clash that is probably with this run's own timed-out booking."""
+    poll_and_book(client, sels, log, args, only_date, release_at, run_start)
+    confirm_probable_own(client, sels, log, run_start, "scheduled", CONFIRM_DELAYS)
+
+
+def poll_and_book(client, sels, log, args, only_date, release_at, run_start):
     wait = (release_at - now()).total_seconds()
     snapshot = None
     day_sels = [s for s in sels if s["weekday"] == only_date.weekday()]
@@ -633,6 +703,7 @@ def run_scheduled(client, sels, log, args, only_date, release_at, run_start):
 
 def run_now(client, sels, log):
     """Single pass per selection over its next bookable day (the dashboard "Book now" button)."""
+    run_start = len(log)
     today = now().date()
     dates = None  # read once, shared by every selection
     for s in sels:
@@ -656,6 +727,7 @@ def run_now(client, sels, log):
                 traceback.print_exc()
             msg = str(e) if isinstance(e, NGError) else f"internal error ({type(e).__name__}: {e})"
             record(log, "now", s, {"date": manual_date.isoformat() if manual_date else ""}, "failed", msg)
+    confirm_probable_own(client, sels, log, run_start, "now", CONFIRM_DELAYS_NOW)
 
 
 def parse_release(value):
