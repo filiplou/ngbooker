@@ -86,3 +86,9 @@
   - [x] book.yml: job timeout 120 min; `mode` input defaults to `scheduled`
   - [x] Site errors containing "already" only count as `already` when the booking is held
   - [x] Repaired corrupted characters in Project.md / progress.md; version 2.0
+
+- [x] Timed-out booking then "concurrent reservation" (24 Nov 2026 run: Filip's 1 Dec booking landed but was logged `conflict`)
+  - [x] A clash that follows an unconfirmed timed-out attempt for the same session is marked "probably ours"
+  - [x] After polling, My Bookings is read at +60/+120/+180 s; if the session is there it is logged booked/waitlisted
+  - [x] A real clash (My Bookings readable, session absent) stays `conflict`; "Book now" confirms straight away
+  - [x] Tests in `tests/test_booking_path.py` (103 tests passing; the replay of the 24 Nov run fails on the old code)

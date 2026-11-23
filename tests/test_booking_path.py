@@ -289,5 +289,113 @@ class ReleaseTimeWorkTests(unittest.TestCase):
         self.assertEqual(len(c.calls("dates")), 1)
 
 
+BOOK_TIMEOUT = "Request timed out: /MakeBooking"
+CLASH = ("HTTP 403 POST /MakeBooking: You have another concurrent (at the same time) reservation. Please cancel "
+         "your existing reservation and try again or choose a class with a different time.")
+
+
+class TimedOutThenClash(Recorder):
+    """24 Nov 2026: the first MakeBooking times out but lands, My Bookings times out until `readable_at`,
+    and the retry is refused as a clash with that booking. `held` is what My Bookings shows once readable."""
+
+    def __init__(self, clock, progs, readable_at, held=None, lands=True, first_error=BOOK_TIMEOUT):
+        super().__init__(clock, DAY, progs)
+        self.readable_at, self.held, self.lands, self.first_error = readable_at, list(held or []), lands, first_error
+
+    def my_bookings(self, who=None):
+        self.events.append(("my_bookings", self.clock.now()))
+        if self.readable_at is None or self.clock.now() < self.readable_at:
+            raise NGError(TIMEOUT)
+        return list(self.held)
+
+    def book(self, p, who=None):
+        self.events.append(("book", self.clock.now()))
+        if len(self.calls("book")) == 1:
+            if self.lands:
+                self.held.append(held_entry("Social Doubles C1-2 C1", "7:30 PM"))  # the site's real shape
+            raise NGError(self.first_error)
+        raise NGError(CLASH)
+
+
+def held_entry(name, display_time):
+    return {"className": name, "displayDate": DAY.strftime("%A %d %B"), "displayTime": display_time}
+
+
+def doubles():
+    return [prog("Social Doubles C1-2", "19:30", "racquet")], [sel("Social Doubles C1-2", "19:30", "racquet", "Filip")]
+
+
+class ProbableOwnClashTests(unittest.TestCase):
+    def test_this_mornings_clash_is_confirmed_as_booked(self):
+        # Before the fix this was logged "conflict" and the run failed, though the booking had landed.
+        clock = Clock(RUN_START)
+        progs, sels = doubles()
+        c = TimedOutThenClash(clock, progs, readable_at=RELEASE.replace(minute=6))
+        code, saved = run_main(["--mode", "scheduled"], sels, c, clock)
+        self.assertEqual([e["result"] for e in saved], ["failed", "conflict", "booked"])
+        self.assertIn(book.PROBABLY_OURS, saved[1]["message"])
+        self.assertIn("confirmed in My Bookings", saved[2]["message"])
+        self.assertEqual(code, 0)
+        self.assertEqual(len(c.calls("book")), 2)  # confirming never sends another booking
+
+    def test_clash_with_a_different_booking_stays_a_conflict(self):
+        clock = Clock(RUN_START)
+        progs, sels = doubles()
+        c = TimedOutThenClash(clock, progs, readable_at=RELEASE.replace(minute=6), lands=False,
+                              held=[held_entry("Pickleball Social", "7:30 PM")])
+        code, saved = run_main(["--mode", "scheduled"], sels, c, clock)
+        self.assertEqual([e["result"] for e in saved], ["failed", "conflict"])
+        self.assertEqual(code, 1)
+
+    def test_unreadable_my_bookings_leaves_the_conflict_and_gives_up(self):
+        clock = Clock(RUN_START)
+        progs, sels = doubles()
+        c = TimedOutThenClash(clock, progs, readable_at=None)
+        code, saved = run_main(["--mode", "scheduled"], sels, c, clock)
+        self.assertEqual([e["result"] for e in saved], ["failed", "conflict"])
+        self.assertIn(book.PROBABLY_OURS, saved[1]["message"])
+        self.assertEqual(code, 1)
+        confirm_reads = [t for t in c.calls("my_bookings") if t > c.calls("book")[-1]]
+        self.assertEqual(len(confirm_reads), len(book.CONFIRM_DELAYS))
+
+    def test_clash_without_an_earlier_timeout_is_not_second_guessed(self):
+        # A plain failure before the clash (not a timeout) means nothing of ours can have landed.
+        clock = Clock(RUN_START)
+        progs, sels = doubles()
+        c = TimedOutThenClash(clock, progs, readable_at=RUN_START, lands=False,
+                              first_error="HTTP 400 POST /MakeBooking: session is full")
+        code, saved = run_main(["--mode", "scheduled"], sels, c, clock)
+        self.assertEqual([e["result"] for e in saved][-1], "conflict")
+        self.assertNotIn(book.PROBABLY_OURS, saved[-1]["message"])
+        self.assertEqual(code, 1)
+
+    def test_book_now_after_a_timed_out_morning_run_confirms_the_booking(self):
+        clock = Clock(RUN_START)
+        progs, sels = doubles()
+        s = sels[0]
+        c = TimedOutThenClash(clock, progs, readable_at=RUN_START, held=[held_entry("Social Doubles C1-2 C1", "7:30 PM")])
+        c.events.append(("book", RUN_START))  # the morning's attempt: the next book() is refused as a clash
+        morning = {"time": "", "mode": "scheduled", "selectionId": s["id"], "kind": "racquet", "who": "Filip",
+                   "className": s["className"], "date": DAY.isoformat(), "slot": "19:30", "result": "failed",
+                   "message": f"{BOOK_TIMEOUT} - {book.NOT_FOUND_AFTER} 65s of checking"}
+        old_clash = dict(morning, result="conflict", message=CLASH, date="2026-10-01")
+        log = [old_clash, morning]
+        # My Bookings is readable now, but the dashboard can still send "Book now" for a held session
+        # if My Bookings is slow; simulate that by making the pre-check fail once.
+        reads = iter([NGError(TIMEOUT)])
+
+        def first_read_fails(who=None):
+            err = next(reads, None)
+            if err:
+                raise err
+            return list(c.held)
+        c.my_bookings = first_read_fails
+        with mock.patch.object(book, "now", side_effect=clock.now), mock.patch("book.time.sleep", side_effect=clock.sleep), \
+                mock.patch.object(book, "manual_target_date", return_value=DAY):
+            book.run_now(c, sels, log)
+        self.assertEqual([e["result"] for e in log[2:]], ["conflict", "booked"])
+        self.assertEqual(len(log), 4)  # the old, unrelated conflict from October is left alone
+
+
 if __name__ == "__main__":
     unittest.main()
