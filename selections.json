@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-23T12:29:27.715Z",
+  "updated": "2026-11-23T12:29:35.542Z",
   "allPaused": false,
   "releaseTime": "08:01",
   "selections": [
@@ -77,6 +77,16 @@
       "time": "17:30",
       "weekday": 6,
       "duration": 30
+    },
+    {
+      "id": "groupex|Theresa|Sculpt Booty Band Class|1|08:30",
+      "progId": "Sculpt Booty Band Class|1|08:30",
+      "kind": "groupex",
+      "who": "Theresa",
+      "className": "Sculpt Booty Band Class",
+      "time": "08:30",
+      "weekday": 1,
+      "activityID": "RE1TU0830AUG22A"
     }
   ]
 }
