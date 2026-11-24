@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-24T08:15:02+11:00",
+  "updated": "2026-11-24T15:51:17+11:00",
   "bookings": [
     {
       "bookingID": 21084192,
@@ -22,17 +22,6 @@
       "isOnWaitList": false,
       "firstName": null,
       "who": "Filip"
-    },
-    {
-      "bookingID": 20960877,
-      "displayDate": "Tuesday 24 November",
-      "displayTime": "8:30 AM",
-      "className": "Sculpt Booty Band Class",
-      "duration": "55 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Theresa"
     },
     {
       "bookingID": 20961151,
