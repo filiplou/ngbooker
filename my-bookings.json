@@ -1,28 +1,6 @@
 {
-  "updated": "2026-11-25T14:35:37+11:00",
+  "updated": "2026-11-26T08:19:02+11:00",
   "bookings": [
-    {
-      "bookingID": 21084192,
-      "displayDate": "Thursday 26 November",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles B2 C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
-    {
-      "bookingID": 21084041,
-      "displayDate": "Tuesday 1 December",
-      "displayTime": "7:30 PM",
-      "className": "Social Doubles C1-2 C1",
-      "duration": "60 mins",
-      "canCancelBooking": true,
-      "isOnWaitList": false,
-      "firstName": null,
-      "who": "Filip"
-    },
     {
       "bookingID": 21087688,
       "displayDate": "Friday 27 November",
@@ -50,6 +28,17 @@
       "displayDate": "Tuesday 1 December",
       "displayTime": "8:30 AM",
       "className": "Sculpt Booty Band Class",
+      "duration": "55 mins",
+      "canCancelBooking": true,
+      "isOnWaitList": false,
+      "firstName": null,
+      "who": "Theresa"
+    },
+    {
+      "bookingID": 20962283,
+      "displayDate": "Thursday 3 December",
+      "displayTime": "9:30 AM",
+      "className": "BodyPump®",
       "duration": "55 mins",
       "canCancelBooking": true,
       "isOnWaitList": false,
