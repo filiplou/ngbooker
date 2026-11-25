@@ -622,5 +622,53 @@
     "slot": "19:30",
     "result": "booked",
     "message": "the booking request timed out and a retry was refused as a clash with it; confirmed in My Bookings (Social Doubles C1-2 C1) - added after the run"
+  },
+  {
+    "time": "2026-11-26T08:11:53+11:00",
+    "mode": "scheduled",
+    "selectionId": "racquet|Filip|Social Doubles B2 C1-2|3|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles B2 C1-2",
+    "date": "2026-12-03",
+    "slot": "19:30",
+    "result": "failed",
+    "message": "availability check failed (Request timed out: /CheckAvailability), booked anyway; Request timed out: /MakeBooking - not found in My Bookings after 65s of checking"
+  },
+  {
+    "time": "2026-11-26T08:10:39+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|BodyPump®|3|09:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "BodyPump®",
+    "date": "2026-12-03",
+    "slot": "09:30",
+    "result": "failed",
+    "message": "availability check failed (Request timed out: /CheckAvailability), booked anyway; Request timed out: /MakeBooking - not found in My Bookings after 65s of checking"
+  },
+  {
+    "time": "2026-11-26T08:14:00+11:00",
+    "mode": "scheduled",
+    "selectionId": "racquet|Filip|Social Doubles B2 C1-2|3|19:30",
+    "kind": "racquet",
+    "who": "Filip",
+    "className": "Social Doubles B2 C1-2",
+    "date": "2026-12-03",
+    "slot": "19:30",
+    "result": "not-published",
+    "message": "could not read the club timetable before the polling deadline (last error: Request timed out: /AvailableTennisProgramsforDate)"
+  },
+  {
+    "time": "2026-11-26T08:14:00+11:00",
+    "mode": "scheduled",
+    "selectionId": "groupex|Theresa|BodyPump®|3|09:30",
+    "kind": "groupex",
+    "who": "Theresa",
+    "className": "BodyPump®",
+    "date": "2026-12-03",
+    "slot": "09:30",
+    "result": "not-published",
+    "message": "could not read the club timetable before the polling deadline (last error: Request timed out: /AvailableClassesForDate)"
   }
 ]
